@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: com.github.ustc-infinitelab:floodlightpof:1.0.3.onos">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/ustc-infinitelab/floodlightpof/1.0.3.onos/floodlightpof-1.0.3.onos.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/ustc-infinitelab/floodlightpof/1.0.3.onos/floodlightpof-1.0.3.onos-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/ustc-infinitelab/floodlightpof/1.0.3.onos/floodlightpof-1.0.3.onos-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

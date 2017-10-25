@@ -1,0 +1,103 @@
+package org.onosproject.pof.VLC;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Created by tsf on 10/11/17.
+ */
+public class Test {
+
+    private static int x;
+    {x = 12;}
+
+    {x = 13;}
+
+    public static int getX() {
+        return x;
+    }
+
+    public String ip2HexStr(String ip) {
+        String[] ipArray = ip.split("\\.");
+        String[] tempIp = new String[4];
+        String ipHexStr = "";
+        for(int i = 0; i < 4; i++) {
+            tempIp[i] = Integer.toHexString(Integer.parseInt(ipArray[i], 10));
+            if(tempIp[i].length() < 2) {
+                tempIp[i] = "0" + tempIp[i];
+            }
+            ipHexStr += tempIp[i];
+        }
+        return ipHexStr;
+    }
+
+    public Map<Integer, Integer> getMaxSignal(short ledId1, byte singnal1, short ledId2, byte singnal2, short ledId3, byte singnal3) {
+        // get the max signal value and its ledId
+        short maxLedId = 0;
+        byte maxSignal = 0;
+        Map<Integer, Integer> LED = new HashMap<>();
+        LED.put(Integer.valueOf(ledId1), Integer.valueOf(singnal1));
+        LED.put(Integer.valueOf(ledId2), Integer.valueOf(singnal2));
+        LED.put(Integer.valueOf(ledId3), Integer.valueOf(singnal3));
+        byte temp = singnal1 > singnal2 ? singnal1 : singnal2;
+        maxSignal = temp > singnal3 ? temp : singnal3;
+        for(Integer key : LED.keySet()) {
+            //System.out.println("LED.get(key).equals(maxSignal): " + LED.get(key).compareTo(Integer.valueOf(maxSignal)));
+            if(LED.get(key).shortValue() == (maxSignal)) {
+                maxLedId = key.shortValue();
+                System.out.println("key: " + maxLedId);
+                break;
+            }
+        }
+        System.out.println("LedId: " + maxLedId + ", Signal: " + maxSignal);
+        return new HashMap<>(Integer.valueOf(maxLedId), Integer.valueOf(maxSignal));
+    }
+
+    public String short2HexStr(short shortNum) {
+        String hexStr = Integer.toHexString(shortNum);
+        if(hexStr.length() < 2) {
+            hexStr = "0" + hexStr;
+        }
+        return hexStr;
+    }
+
+    public String int2HexStr(int intNum) {
+        String hexStr = Integer.toHexString(intNum);
+        int len = hexStr.length();
+        if(hexStr.length() < 4) {
+            for(int i = 0; i < 4 - len;i++) {
+                hexStr = "0" + hexStr;
+
+            }
+        }
+        return hexStr;
+    }
+
+    public static void main(String[] args) {
+        /*int num = 129;
+        System.out.println(Integer.toHexString(num));*/
+
+        Test test = new Test();
+        /*String ip = test.ip2HexStr("109.0.0.1");
+        System.out.println("ip2HexStr: " + ip);*/
+
+//        System.out.println("static x: " + getX());
+
+//        System.out.println("Integer.toHexString: " + Integer.toHexString(123));
+
+        /*byte b1 = 1;
+        byte b2 = 1;
+        short b3 = (short) ((b1 << 8) + b2);
+        short b4 = 0x0101;
+        System.out.println("b3 = " + b3 + ",b4 = " + b4);*/
+
+        /*Map<Integer, Integer> maxSignal = new HashMap<>();
+        test.getMaxSignal((short) 1, (byte) 9,(short) 2,(byte) 9,(short) 9 ,(byte) 9);*/
+
+        String shortHexStr = test.short2HexStr((short) 1);
+        System.out.println("short2HexStr: " + shortHexStr);
+        String intHexStr = test.int2HexStr(1);
+        System.out.println("int2HexStr: " + intHexStr);
+
+    }
+}
