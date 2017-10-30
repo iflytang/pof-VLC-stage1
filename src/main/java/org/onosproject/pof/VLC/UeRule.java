@@ -199,11 +199,11 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void installAPFlowRule(String deviceId, String dstip, int outport, int DIP) {
+    public void installAPFlowRule(String deviceId,int tableId, String dstip, int outport, int DIP) {
         // match dstIp {240b, 32b}
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffFFffFF"));
+        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
         log.info("[==installAPFlowRule==] match dstIP.");
 
@@ -221,14 +221,14 @@ public class UeRule implements UeRuleService {
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
         FlowRule.Builder flowRule = DefaultFlowRule.builder()
                 .forDevice(DeviceId.deviceId(deviceId))
-                .forTable(gloablTableId)
+                .forTable(tableId)
                 .withSelector(trafficSelector.build())
                 .withTreatment(trafficTreatment.build())
                 .withPriority(1)
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installAPFlowRule==] applyRuleService {} + globalTableId {}.",deviceId, gloablTableId);
+        log.info("[==installAPFlowRule==] applyRuleService {} + tableId {}.",deviceId, tableId);
     }
 
     @Override
@@ -262,6 +262,34 @@ public class UeRule implements UeRuleService {
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
         log.info("[==installInterFlowRule==] applyRuleService deviceId: {} + globalTableId: {}.", deviceId, gloablTableId);
+    }
+
+    @Override
+    public void installGoToTableFlowRule(String deviceId, int tableId, int goToTableId) {
+        // match dstIp{240b, 32b}, no VLC header here
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 288, (short) 32, "00000000", "00000000"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+        log.info("[==installInterFlowRule==] match: {}.", matchList);
+
+        // action: forward
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<>();
+        trafficTreatment.add(DefaultPofInstructions.gotoTable((byte) goToTableId, (byte) 0, (byte) 0, new ArrayList<OFMatch20>()));
+        log.info("[==installInterFlowRule==] action: {}.", actions);
+
+        // apply flow rule to switch, globalTableId = 0 by default
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(DeviceId.deviceId(deviceId))
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withCookie(newFlowEntryId)
+                .withPriority(0)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
     }
 
     @Override
@@ -317,7 +345,7 @@ public class UeRule implements UeRuleService {
 
         //construct OFMatch20
         OFMatch20 DIP_with_VLC = new OFMatch20();
-        DIP_with_VLC.setFieldName("DIP");
+        DIP_with_VLC.setFieldName("DIP_VLC");
         DIP_with_VLC.setFieldId((short) DIP);
         DIP_with_VLC.setOffset((short) 288);
         DIP_with_VLC.setLength((short) 32);
@@ -337,8 +365,10 @@ public class UeRule implements UeRuleService {
         for(DeviceId deviceId : deviceIdList) {
             int smallTableId = flowTableStore.parseToSmallTableId(deviceId, gloablTableId);
             byte tableId = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
+            byte tableId1 = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
 
             if(deviceId.equals(DeviceId.deviceId("pof:0000000000000003"))) {
+                // =========== tableId-0 =================
                 // construct OFMatch FlowTable with VLC
                 OFFlowTable ofFlowTable_with_VLC = new OFFlowTable();
                 ofFlowTable_with_VLC.setTableId(tableId);
@@ -351,14 +381,35 @@ public class UeRule implements UeRuleService {
                 ofFlowTable_with_VLC.setMatchFieldList(match_DIP_with_VLC);
 
                 // send flow table to AP when connected up
-                FlowTable.Builder flowTable = DefaultFlowTable.builder()
+                FlowTable.Builder flowTable0 = DefaultFlowTable.builder()
                         .withFlowTable(ofFlowTable_with_VLC)
                         .forDevice(deviceId)
-                        .forTable(tableId)
+                        .forTable(tableId)  // tableId = 0
                         .fromApp(appId);
-                flowTableService.applyFlowTables(flowTable.build());
-                log.info("flowTableService to pof:0000000000000003: {}", flowTable.build());
+                flowTableService.applyFlowTables(flowTable0.build());
+                log.info("flowTableService to pof:0000000000000003 tableId-0?-{}: {}", tableId, flowTable0.build());
 
+                // =========== tableId-1 =================
+                // construct OFMatch FlowTable without VLC
+                OFFlowTable ofFlowTable_without_VLC = new OFFlowTable();
+                ofFlowTable_without_VLC.setTableId(tableId1);
+                ofFlowTable_without_VLC.setTableName("SecondEntryTable");
+                ofFlowTable_without_VLC.setMatchFieldNum((byte) 1);
+                ofFlowTable_without_VLC.setTableSize(32);
+                ofFlowTable_without_VLC.setTableType(OFTableType.OF_MM_TABLE);
+                ofFlowTable_without_VLC.setCommand(null);
+                ofFlowTable_without_VLC.setKeyLength((byte) 32);
+                ofFlowTable_without_VLC.setMatchFieldList(match_DIP_without_VLC);
+
+                // send flow table to switches when connected up
+                FlowTable.Builder flowTable1 = DefaultFlowTable.builder()
+                        .withFlowTable(ofFlowTable_without_VLC)
+                        .forDevice(deviceId)
+                        .forTable(tableId1) // tableId = 1
+                        .fromApp(appId);
+
+                flowTableService.applyFlowTables(flowTable1.build());
+                log.info("flowTableService to pof:0000000000000003 tableId-1?-{}: {}", tableId1, flowTable1.build());
             } else {
                 // construct OFMatch FlowTable without VLC
                 OFFlowTable ofFlowTable_without_VLC = new OFFlowTable();

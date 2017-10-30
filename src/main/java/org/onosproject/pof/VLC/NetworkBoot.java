@@ -1,20 +1,26 @@
 package org.onosproject.pof.VLC;
 
 import org.apache.felix.scr.annotations.*;
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.IPv4;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.device.DeviceAdminService;
 import org.onosproject.net.device.DeviceListener;
+import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.FlowRuleService;
-import org.onosproject.net.packet.PacketContext;
-import org.onosproject.net.packet.PacketProcessor;
-import org.onosproject.net.packet.PacketService;
+import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flow.instructions.DefaultPofActions;
+import org.onosproject.net.flow.instructions.DefaultPofInstructions;
+import org.onosproject.net.packet.*;
 import org.onosproject.net.table.FlowTableService;
 import org.onosproject.net.table.FlowTableStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,16 +68,21 @@ public class NetworkBoot {
             log.info("Sleep wrong in NetworkBoot before sending flow tables.");
         }
         ueRuleService.handleConnetionUp();
-//        packetService.addProcessor(packetProcessor, PacketProcessor.director(2));
+        packetService.addProcessor(packetProcessor, PacketProcessor.director(2));
         try{
             Thread.sleep(1000);
         } catch (Exception e) {
             log.info("sleep wrong in Network before sending flow rules.");
         }
-        ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.2.169", 2, 1, 10, 11, 12, 13);
-        ueRuleService.installAPFlowRule("pof:0000000000000001", "192.168.2.169", 1, 1);
+        // downlink
+        ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 10, 11, 12, 13);
+        ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
         //ueRuleService.installDefaultFlowRule("pof:0000000000000001", "10.0.0.2", 1, 1); // test wifi association
-        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.2.169", 2, 1);
+        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 2, 1);  // for ue(211), downlink
+        // uplink
+        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
+        ueRuleService.installAPFlowRule("pof:0000000000000003", 1,"192.168.4.168", 1, 1);  // for ue(211), uplink
+        ueRuleService.installAPFlowRule("pof:0000000000000002", 0,"192.168.4.168", 1, 1); // for 212, uplink
         try{
             Thread.sleep(1000);
         } catch (Exception e) {
@@ -89,7 +100,7 @@ public class NetworkBoot {
 
     @Deactivate
     protected void deactivate() {
-        //packetService.removeProcessor(packetProcessor);
+        packetService.removeProcessor(packetProcessor);
         ueRuleService.handleConnectionDown();
         log.info("NetworkBoot Stopped, appId: {}.", appId);
     }
@@ -107,7 +118,31 @@ public class NetworkBoot {
     protected class ReactivePacketInProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
-            ueRuleService.handleReactivePacket(context);
+            //ueRuleService.handleReactivePacket(context);
+            if(context.isHandled())
+                return;
+
+            InboundPacket pkt = context.inPacket();
+            DeviceId deviceId = pkt.receivedFrom().deviceId();
+            Ethernet packet = pkt.parsed();
+            if(packet.getEtherType() == 0x0800) {
+                String srcMac = pkt.parsed().getSourceMAC().toString();
+                String dstMac = pkt.parsed().getDestinationMAC().toString();
+                IPv4 iPv4Packet = (IPv4) packet.getPayload();
+                String srcIP = Integer.toHexString(iPv4Packet.getSourceAddress());
+                String dstIP = Integer.toHexString(iPv4Packet.getDestinationAddress());
+                /*if(dstMac.equals("4E:4F:4F:4F:4F:4F") || dstMac.equals("FF:FF:FF:FF:FF:FF") ||
+                        dstIP.equals("ffffffff"))
+                {}
+                else {*/
+                    log.info("==========[packetIn packet]=========");
+                    log.info("srcMac: {}", srcMac);
+                    log.info("dstMac: {}", dstMac);
+                    log.info("srcIP: {}", srcIP);
+                    log.info("dstIP: {}", dstIP);
+//                }
+            }
+
         }
     }
 

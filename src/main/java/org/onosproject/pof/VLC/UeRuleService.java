@@ -29,9 +29,14 @@ public interface UeRuleService {
 
     // install flow rules for wifi AP, to forward UE's feedback to controller with PacketIn by default and
     // forward packets to servers after removing VLC header, dstIp {240+6*8, 32}
-    void installAPFlowRule(String deviceId, String dstip, int outport, int DIP);
+    void installAPFlowRule(String deviceId,int tableId, String dstip, int outport, int DIP);
 
+    // delete VLC header and forward in test stage {288, 32}
     void installUeSwitchFlowRule(String deviceId, String dstIp, int outPort, int DIP);
+
+    // go to table when test ping, installed in UE {288, 32}
+    void installGoToTableFlowRule(String deviceId, int tableId, int goToTableId);
+
     /**
      * functions as basic tool
      */
