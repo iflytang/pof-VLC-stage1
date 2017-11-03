@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by tsf on 10/11/17.
@@ -74,15 +76,17 @@ public class NetworkBoot {
         } catch (Exception e) {
             log.info("sleep wrong in Network before sending flow rules.");
         }
-        // downlink
+        // for GW (IPL219), add VLC header and forward, downlink
         ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 10, 11, 12, 13);
+        // for AP (OpenWrt132), forward, uplink
         ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
         //ueRuleService.installDefaultFlowRule("pof:0000000000000001", "10.0.0.2", 1, 1); // test wifi association
-        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 2, 1);  // for ue(211), downlink
-        // uplink
-        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
-        ueRuleService.installAPFlowRule("pof:0000000000000003", 1,"192.168.4.168", 1, 1);  // for ue(211), uplink
-        ueRuleService.installAPFlowRule("pof:0000000000000002", 0,"192.168.4.168", 1, 1); // for 212, uplink
+       // for inter_SW (IPL210), remove VLC header and forward, downlink
+        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 3, 1);  // for ue(211), downlink
+        // for inter_SW (IPL210), forward, uplink
+//        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
+//        ueRuleService.installForwardFlowRule("pof:0000000000000003", 1,"192.168.4.168", 3, 1);  // port3 == wlan0
+
         try{
             Thread.sleep(1000);
         } catch (Exception e) {
@@ -119,7 +123,9 @@ public class NetworkBoot {
         @Override
         public void process(PacketContext context) {
             //ueRuleService.handleReactivePacket(context);
-            if(context.isHandled())
+
+            //TODO ========== test packetIn message (0x0800) =========
+            /*if(context.isHandled())
                 return;
 
             InboundPacket pkt = context.inPacket();
@@ -131,18 +137,84 @@ public class NetworkBoot {
                 IPv4 iPv4Packet = (IPv4) packet.getPayload();
                 String srcIP = Integer.toHexString(iPv4Packet.getSourceAddress());
                 String dstIP = Integer.toHexString(iPv4Packet.getDestinationAddress());
-                /*if(dstMac.equals("4E:4F:4F:4F:4F:4F") || dstMac.equals("FF:FF:FF:FF:FF:FF") ||
-                        dstIP.equals("ffffffff"))
-                {}
-                else {*/
-                    log.info("==========[packetIn packet]=========");
-                    log.info("srcMac: {}", srcMac);
-                    log.info("dstMac: {}", dstMac);
-                    log.info("srcIP: {}", srcIP);
-                    log.info("dstIP: {}", dstIP);
-//                }
+
+                log.info("==========[packetIn packet]=========");
+                log.info("srcMac: {}", srcMac);
+                log.info("dstMac: {}", dstMac);
+                log.info("srcIP: {}", srcIP);
+                log.info("dstIP: {}", dstIP);
             }
 
+            if(context.isHandled()) {
+                return;
+            }*/
+
+            //TODO =========== handle AP's broadcast message (0x0908) =========
+            // get deviceId and port, the port maybe not the WIFI port but WAN port
+            InboundPacket inboundPacket = context.inPacket();
+            String deviceId = inboundPacket.receivedFrom().deviceId().toString();
+            int port = (int) inboundPacket.receivedFrom().port().toLong();   // through WAN to report to controller
+
+            // get srcMAC and ip
+            Ethernet ethernetPacket = inboundPacket.parsed();
+            if(ethernetPacket.getEtherType() == 0x0908) {
+                log.info("[== 0x0908?==> {} AP's BROADCAST ==]", Integer.toHexString(ethernetPacket.getEtherType()));
+                String srcMAC = ethernetPacket.getSourceMAC().toString();   // like "01:02:03:04:05:06"
+                String dstMAC = ethernetPacket.getDestinationMAC().toString();
+                log.info("srcMac: {}", srcMAC);
+                log.info("dstMac: {}", dstMAC);
+
+                // ===== get data from unparsed packet =====
+                byte ledId1 = inboundPacket.unparsed().get(42);   // return one byte, 0x01 in test
+                byte singnal1 = inboundPacket.unparsed().get(43);  // return one byte, 0x02 in test
+                byte ledId2 = inboundPacket.unparsed().get(44);  // return one byte, 0x03 in test
+                byte singnal2 = inboundPacket.unparsed().get(45); // return one byte, 0x04 in test
+                byte maxLedId = 0;
+                byte maxSignal = singnal1 > singnal2 ? singnal1 : singnal2;
+                log.info("led1: {}", Integer.toHexString(ledId1));
+                log.info("signal1: {}", Integer.toHexString(singnal1));
+                log.info("led2: {}", Integer.toHexString(ledId2));
+                log.info("signal2: {}", Integer.toHexString(singnal2));
+                log.info("maxSignal: {}", Integer.toHexString(maxSignal));
+
+                // ==== store the ledId and maxSignal in MAP =====
+                Map<Integer, Integer> LED = new HashMap<>();
+                LED.put((int) ledId1, (int) singnal1);
+                LED.put((int) ledId2, (int) singnal2);
+                for(Integer key : LED.keySet()) {
+                    if(LED.get(key).byteValue() == maxSignal) {
+                        maxLedId = key.byteValue();
+                        break;
+                    }
+                }
+                log.info("maxLedId: {}", maxLedId);
+
+
+                // get payload of IPv4, which is broadcast packet
+                /*byte[] payload = iPv4Packet.getPayload().serialize();
+                short ueId = (short) ((payload[0] << 8) + payload[1]);
+                short ledId1 = (short) ((payload[2] << 8) + payload[3]);
+                byte singnal1 = payload[4];
+                short ledId2 = (short) ((payload[5] << 8) + payload[6]);
+                byte singnal2 = payload[7];
+                short ledId3 = (short) ((payload[8] << 8) + payload[9]);
+                byte singnal3 = payload[10];
+                // get the max signal value and its ledId. if all equals, use ledId1.
+                short maxLedId = 0;
+                byte maxSignal = 0;
+                Map<Integer, Integer> LED = new HashMap<>();
+                LED.put(Integer.valueOf(ledId1), Integer.valueOf(singnal1));
+                LED.put(Integer.valueOf(ledId2), Integer.valueOf(singnal2));
+                LED.put(Integer.valueOf(ledId3), Integer.valueOf(singnal3));
+                byte temp = singnal1 > singnal2 ? singnal1 : singnal2;
+                maxSignal = temp > singnal3 ? temp : singnal3;
+                for (Integer key : LED.keySet()) {
+                    if (LED.get(key).shortValue() == (maxSignal)) {
+                        maxLedId = key.shortValue();
+                        break;
+                    }
+                }*/
+            }
         }
     }
 

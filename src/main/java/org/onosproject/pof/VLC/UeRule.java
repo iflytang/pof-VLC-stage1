@@ -363,7 +363,7 @@ public class UeRule implements UeRuleService {
         match_DIP_without_VLC.add(DIP_without_VLC);
 
         for(DeviceId deviceId : deviceIdList) {
-            int smallTableId = flowTableStore.parseToSmallTableId(deviceId, gloablTableId);
+            //int smallTableId = flowTableStore.parseToSmallTableId(deviceId, gloablTableId);
             byte tableId = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
             byte tableId1 = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
 
@@ -438,9 +438,14 @@ public class UeRule implements UeRuleService {
     @Override
     public void handleConnectionDown() {
         List<DeviceId>  deviceIdList = getDeviceList();
+        long tableId = 0;
+        long tableId1 = 1;
 
         for(DeviceId deviceId : deviceIdList) {
-            flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(gloablTableId));
+            flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId));
+            if(deviceId.toString().equals("pof:0000000000000003")) {
+                flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId1));
+            }
         }
     }
 
@@ -452,7 +457,7 @@ public class UeRule implements UeRuleService {
             if(deviceId.toString().equals("pof:0000000000000003")) {
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(1), true);  // for sw3
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(2), true);
-                //deviceAdminService.changePortState(deviceId, PortNumber.portNumber(3), true);
+                deviceAdminService.changePortState(deviceId, PortNumber.portNumber(3), true);
                 log.info("[==PORT_STATUS==] pof:0000000000000003 enables ports.");
             } else {
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(1), true); // for sw2 and AP
@@ -554,20 +559,20 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void installDefaultFlowRule(String deviceId, String dstip, int outport, int DIP) {
+    public void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP) {
         // match dstIp {240b, 32b}
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "00000000"));
+        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
         log.info("[==installAPFlowRule==] match dstIP.");
 
         // action: (1)remove VLC Header; (2)forward to server; (3)no action to deal with the broadcast packets, so PacketIn
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
         List<OFAction> actions = new ArrayList<>();
-        //OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
+        // OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
         OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport).action();
-        //actions.add(action_remove_VLC);
+        // actions.add(action_remove_VLC);
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
         log.info("[==installAPFlowRule==] action: {}.", actions);
@@ -576,13 +581,13 @@ public class UeRule implements UeRuleService {
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
         FlowRule.Builder flowRule = DefaultFlowRule.builder()
                 .forDevice(DeviceId.deviceId(deviceId))
-                .forTable(gloablTableId)
+                .forTable(tableId)
                 .withSelector(trafficSelector.build())
                 .withTreatment(trafficTreatment.build())
                 .withPriority(1)
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installAPFlowRule==] applyRuleService {} + globalTableId {}.",deviceId, gloablTableId);
+        log.info("[==installAPFlowRule==] applyRuleService {} + tableId {}.",deviceId, tableId);
     }
 }

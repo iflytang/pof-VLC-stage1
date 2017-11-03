@@ -74,6 +74,6 @@ public interface UeRuleService {
     // store UE's information and set association for UE with AP and sw
     void handleUeAssociation(String deviceId, int port, String hwaddr, String ip, short ueId, short maxLedId, byte maxSignal);
 
-    void installDefaultFlowRule(String deviceId, String dstip, int outport, int DIP);
+    void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP);
 
 }
