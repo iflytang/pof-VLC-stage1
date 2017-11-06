@@ -81,12 +81,12 @@ public class NetworkBoot {
         // for AP (OpenWrt132), forward, uplink
         ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
         //ueRuleService.installDefaultFlowRule("pof:0000000000000001", "10.0.0.2", 1, 1); // test wifi association
-       // for inter_SW (IPL210), remove VLC header and forward, downlink
-        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 3, 1);  // for ue(211), downlink
-        // for inter_SW (IPL210), forward, uplink
+       // for inter_SW (IPL218), remove VLC header and forward, downlink
+        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 2, 1);  //  downlink, port2 ==> 220, port3 ==> AP
+        // uncomment this for ping, uplink
 //        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
-//        ueRuleService.installForwardFlowRule("pof:0000000000000003", 1,"192.168.4.168", 3, 1);  // port3 == wlan0
-
+//        ueRuleService.installForwardFlowRule("pof:0000000000000003", 1,"192.168.4.168", 1, 1);  // ue, port1 == eth4, port3 == wlan0
+//        ueRuleService.installForwardFlowRule("pof:0000000000000002", 0,"192.168.4.168", 1, 1);  // gw
         try{
             Thread.sleep(1000);
         } catch (Exception e) {
@@ -188,32 +188,6 @@ public class NetworkBoot {
                     }
                 }
                 log.info("maxLedId: {}", maxLedId);
-
-
-                // get payload of IPv4, which is broadcast packet
-                /*byte[] payload = iPv4Packet.getPayload().serialize();
-                short ueId = (short) ((payload[0] << 8) + payload[1]);
-                short ledId1 = (short) ((payload[2] << 8) + payload[3]);
-                byte singnal1 = payload[4];
-                short ledId2 = (short) ((payload[5] << 8) + payload[6]);
-                byte singnal2 = payload[7];
-                short ledId3 = (short) ((payload[8] << 8) + payload[9]);
-                byte singnal3 = payload[10];
-                // get the max signal value and its ledId. if all equals, use ledId1.
-                short maxLedId = 0;
-                byte maxSignal = 0;
-                Map<Integer, Integer> LED = new HashMap<>();
-                LED.put(Integer.valueOf(ledId1), Integer.valueOf(singnal1));
-                LED.put(Integer.valueOf(ledId2), Integer.valueOf(singnal2));
-                LED.put(Integer.valueOf(ledId3), Integer.valueOf(singnal3));
-                byte temp = singnal1 > singnal2 ? singnal1 : singnal2;
-                maxSignal = temp > singnal3 ? temp : singnal3;
-                for (Integer key : LED.keySet()) {
-                    if (LED.get(key).shortValue() == (maxSignal)) {
-                        maxLedId = key.shortValue();
-                        break;
-                    }
-                }*/
             }
         }
     }

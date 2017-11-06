@@ -245,8 +245,10 @@ public class UeRule implements UeRuleService {
         List<OFAction> actions = new ArrayList<>();
         OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action();
         OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outPort).action();
+//        OFAction action_outport2 = DefaultPofActions.output((short) 0, (short) 0, (short) 0, 2).action();
         actions.add(action_remove_VLC);
         actions.add(action_outport);
+//        actions.add(action_outport2);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
         log.info("[==installInterFlowRule==] action: {}.", actions);
 

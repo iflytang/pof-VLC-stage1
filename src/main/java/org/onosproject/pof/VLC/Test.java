@@ -1,7 +1,6 @@
 package org.onosproject.pof.VLC;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by tsf on 10/11/17.
@@ -73,11 +72,24 @@ public class Test {
         return hexStr;
     }
 
+    public void testPriorityQueue() {
+        PriorityQueue<Integer> integers = new PriorityQueue<>();
+        Random random = new Random();
+        for(int i = 0; i < 7; i++) {
+            integers.add(random.nextInt(100));
+        }
+        for(int i = 0; i < 7; i++) {
+            Integer integer = integers.poll();
+            System.out.println("poll number" + i + ": " + integer);
+        }
+    }
+
     public static void main(String[] args) {
         /*int num = 129;
         System.out.println(Integer.toHexString(num));*/
 
         Test test = new Test();
+        Dijkstra dijkstra = new Dijkstra();
         /*String ip = test.ip2HexStr("109.0.0.1");
         System.out.println("ip2HexStr: " + ip);*/
 
@@ -85,6 +97,7 @@ public class Test {
 
 //        System.out.println("Integer.toHexString: " + Integer.toHexString(123));
 
+        // test invert two byte into one short
         /*byte b1 = 1;
         byte b2 = 1;
         short b3 = (short) ((b1 << 8) + b2);
@@ -94,10 +107,22 @@ public class Test {
         /*Map<Integer, Integer> maxSignal = new HashMap<>();
         test.getMaxSignal((short) 1, (byte) 9,(short) 2,(byte) 9,(short) 9 ,(byte) 9);*/
 
-        String shortHexStr = test.short2HexStr((short) 1);
+        // test short inverted to HexString
+        /*String shortHexStr = test.short2HexStr((short) 1);
         System.out.println("short2HexStr: " + shortHexStr);
         String intHexStr = test.int2HexStr(1);
-        System.out.println("int2HexStr: " + intHexStr);
+        System.out.println("int2HexStr: " + intHexStr);*/
 
+        // test compareTo
+        /*Integer a = 12;
+        Integer b = 13;
+        System.out.println("a < b ? : " + a.compareTo(b));*/
+
+        // test the natural order of attribute of PriorityQueue, ascending sort
+        /*test.testPriorityQueue();*/
+
+        // test dijkstra
+        List<Integer> path = dijkstra.getShortestPath(1, 6);
+        System.out.println("path: " + path.toString());
     }
 }
