@@ -76,4 +76,7 @@ public interface UeRuleService {
 
     void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP);
 
+    // set timeSlot mask, return 1B hexString
+    String toHexTimeSlot(List<Integer> timeSlotList);
+
 }

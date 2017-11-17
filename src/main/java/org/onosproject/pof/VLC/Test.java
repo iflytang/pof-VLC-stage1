@@ -84,6 +84,37 @@ public class Test {
         }
     }
 
+    public String toHexTimeSlot(List<Integer> timeSlotList) {
+        int timeSlot =  0x0000;
+        int flag =  0x0080;
+        String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
+
+        for(Integer slot : timeSlotList) {
+            switch (slot) {
+                case 1:
+                    timeSlot += (flag >> 1); // 01 00 00 00
+                    flag = 0x0080;   // reset
+                    continue;
+                case 2:
+                    timeSlot += (flag >> 3);
+                    flag = 0x0080;
+                    continue;
+                case 3:
+                    timeSlot += (flag >> 5);
+                    flag = 0x80;
+                    continue;
+                case 4:
+                    timeSlot += (flag >> 7);
+                    flag = 0x80;
+                    continue;
+            }
+        }
+
+        hextimeSlot = Integer.toHexString(timeSlot );
+
+        return hextimeSlot;
+    }
+
     public static void main(String[] args) {
         /*int num = 129;
         System.out.println(Integer.toHexString(num));*/
@@ -121,8 +152,17 @@ public class Test {
         // test the natural order of attribute of PriorityQueue, ascending sort
         /*test.testPriorityQueue();*/
 
-        // test dijkstra
-        List<Integer> path = dijkstra.getShortestPath(1, 6);
-        System.out.println("path: " + path.toString());
+        // test dijkstra ==> [ok]
+//        List<Integer> path = dijkstra.getShortestPath(1, 6);
+//        System.out.println("path: " + path.toString());
+
+        // test toHexTimeSlot ==> [ok]
+        List<Integer> timeSlot = new ArrayList<>();
+        timeSlot.add(1);
+        timeSlot.add(2);
+        timeSlot.add(3);
+        timeSlot.add(4);
+        String hexTimeSlot = test.toHexTimeSlot(timeSlot);
+        System.out.println("time slot " + timeSlot + " ==> hex time slot [" + hexTimeSlot + "]");
     }
 }
