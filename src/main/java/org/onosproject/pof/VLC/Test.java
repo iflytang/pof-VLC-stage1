@@ -115,6 +115,39 @@ public class Test {
         return hextimeSlot;
     }
 
+    List<Integer> ueIdList = new ArrayList<>();
+    public int ueIdGenerator() {
+        // assign UeId
+        Random random = new Random();
+        int ueId = random.nextInt(128) + 1;  // ueId from 1 to 128
+        int randRange = 128;   // at most 128 ueId
+        int i;   // index of for loop
+
+        // if ueIdList full, fail to assign ueId
+        if(ueIdList.size() == randRange) {
+            System.out.println("no more ueId! assign ueId fails, return with ueId<255>.");
+            return 255;
+        }
+
+        // check in ueIdList in a traversal way
+        for(i = 0; i < ueIdList.size(); i++) {
+            // if assigned, reassign ueId and recheck
+            Integer assignedId = ueIdList.get(i);
+            if(ueId == assignedId) {
+                int tempUeId = random.nextInt(128) + 1;
+                ueId = tempUeId;
+                i = 0;
+                i--;     // i-- then i++, finally i = 0
+            }
+        }
+
+        // no conflicts for ueId, then store in ueIdSet
+        ueIdList.add(ueId);
+        Collections.sort(ueIdList);
+        System.out.println("ueIdList ==> " + ueIdList);
+        return ueId;
+    }
+
     public static void main(String[] args) {
         /*int num = 129;
         System.out.println(Integer.toHexString(num));*/
@@ -157,12 +190,22 @@ public class Test {
 //        System.out.println("path: " + path.toString());
 
         // test toHexTimeSlot ==> [ok]
-        List<Integer> timeSlot = new ArrayList<>();
+/*        List<Integer> timeSlot = new ArrayList<>();
         timeSlot.add(1);
         timeSlot.add(2);
         timeSlot.add(3);
         timeSlot.add(4);
         String hexTimeSlot = test.toHexTimeSlot(timeSlot);
-        System.out.println("time slot " + timeSlot + " ==> hex time slot [" + hexTimeSlot + "]");
+        System.out.println("time slot " + timeSlot + " ==> hex time slot [" + hexTimeSlot + "]");*/
+
+        // test ueIdGenerator ==> [ok]
+        int ueId;
+        for(int i = 0; i < 11; i++) {
+            ueId = test.ueIdGenerator();
+            System.out.println("assign [" + i + "] random ueId by random: " + ueId + "\n");
+//            test.randomGeneratorByMath();
+        }
+
+
     }
 }

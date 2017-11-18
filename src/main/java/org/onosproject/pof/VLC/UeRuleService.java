@@ -79,4 +79,11 @@ public interface UeRuleService {
     // set timeSlot mask, return 1B hexString
     String toHexTimeSlot(List<Integer> timeSlotList);
 
+
+    // generate ueId, return new ueId
+    int ueIdGenerator();
+
+    // remove ueId by Object, return remained ueIdList
+    List<Integer> removeUeId(Integer ueId);
+
 }

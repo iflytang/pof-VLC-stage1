@@ -26,10 +26,7 @@ import org.onosproject.net.table.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by tsf on 10/9/17.
@@ -623,5 +620,49 @@ public class UeRule implements UeRuleService {
        hextimeSlot = Integer.toHexString(timeSlot );
 
        return hextimeSlot;
+   }
+
+
+   // generate UeId
+   protected List<Integer> ueIdList = new ArrayList<>();  // store ueId in ArrayList
+   @Override
+   public int ueIdGenerator() {
+       // assign UeId
+       Random random = new Random();
+       int ueId = random.nextInt(128) + 1;  // ueId from 1 to 128
+       int randRange = 128;   // at most 128 ueId
+       int i;   // index of for loop
+
+       // if ueIdList full, fail to assign ueId
+       if(ueIdList.size() == randRange) {
+           log.info("no more ueId! assign ueId fails, return with ueId<255>.");
+           return 255;
+       }
+
+       // check in ueIdList in a traversal way
+       for(i = 0; i < ueIdList.size(); i++) {
+           // if assigned, reassign ueId and recheck
+           Integer assignedId = ueIdList.get(i);
+           if(ueId == assignedId) {
+               int tempUeId = random.nextInt(128) + 1;
+               log.info("Warning! ueId conflicts! There have been ueId ==> {}, reassign ueId ==> {}", ueId, tempUeId);
+               ueId = tempUeId;
+               i = 0;
+               i--;     // i-- then i++, finally i = 0
+           }
+       }
+
+       // no conflicts for ueId, then store in ueIdSet
+       ueIdList.add(ueId);
+       Collections.sort(ueIdList);     // sort ueId in ascending order
+       log.info("Store ueId {} in ueIdSet {}.", ueId, ueIdList);
+       return ueId;
+   }
+
+   // remove ueId by Object
+   @Override
+   public List<Integer> removeUeId(Integer ueId) {
+        ueIdList.remove(ueId);
+        return ueIdList;
    }
 }
