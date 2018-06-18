@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" immediate="true" name="org.onosproject.pof.VLC.NetworkMonitor" activate="activate" deactivate="deactivate">
-    <implementation class="org.onosproject.pof.VLC.NetworkMonitor"/>
-    <property name="service.pid" value="org.onosproject.pof.VLC.NetworkMonitor"/>
-    <reference name="ueRuleService" interface="org.onosproject.pof.VLC.UeRuleService" cardinality="1..1" policy="static" bind="bindUeRuleService" unbind="unbindUeRuleService"/>
-    <reference name="networkEventService" interface="org.onosproject.pof.VLC.NetworkEventService" cardinality="1..1" policy="static" bind="bindNetworkEventService" unbind="unbindNetworkEventService"/>
-    <reference name="eventDispatcher" interface="org.onosproject.event.EventDeliveryService" cardinality="1..1" policy="static" bind="bindEventDispatcher" unbind="unbindEventDispatcher"/>
-</scr:component>
