@@ -4,6 +4,7 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.packet.PacketContext;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by tsf on 10/9/17.
@@ -37,6 +38,8 @@ public interface UeRuleService {
     // go to table when test ping, installed in UE {288, 32}
     void installGoToTableFlowRule(String deviceId, int tableId, int goToTableId);
 
+    void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP);
+
     /**
      * functions as basic tool
      */
@@ -65,23 +68,13 @@ public interface UeRuleService {
     // enable ports of switches and AP when network boot
     void handlePortStatus();
 
-    /**
-     * functions for processing AP's broadcast packets (Ether type as 0x0908)
-     */
-    // handle the AP's broadcast packets
-    void handleReactivePacket(PacketContext context);
 
-    // store UE's information and set association for UE with AP and sw
-    void handleUeAssociation(String deviceId, int port, String hwaddr, String ip, short ueId, short maxLedId, byte maxSignal);
 
-    void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP);
-
-    // set timeSlot mask, return 1B hexString
-    String toHexTimeSlot(List<Integer> timeSlotList);
-
+    // set timeSlot mask, return timeSlot int
+    int toDecTimeSlot(List<Integer> timeSlotList);
 
     // generate ueId, return new ueId
-    int ueIdGenerator();
+    int ueIdGenerator(String mac);
 
     // remove ueId by Object, return remained ueIdList
     List<Integer> removeUeId(Integer ueId);

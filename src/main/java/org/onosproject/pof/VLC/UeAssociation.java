@@ -21,7 +21,6 @@ public class UeAssociation {
     protected String deviceId;
     protected int port;
     protected short ledId;
-    protected short power;
     protected String ip;
 
     // initiation of up-link (attach to pof-switch with wifi)
@@ -29,30 +28,24 @@ public class UeAssociation {
         this.deviceId = deviceId;
         this.port = port;
         this.ledId = 0;   // attach to no one led
-        this.power = 0; // the power of light is zero
         this.ip = ip;
     }
 
     // initiation of down-link (attach to light-AP)
-    public UeAssociation(short ledId, short power, String ip) {
+    public UeAssociation(short ledId, String ip) {
         this.deviceId = null;
         this.port = 0; // port starts from 1
         this.ledId = ledId;
-        this.power = power;
         this.ip = ip;
     }
 
     // initiation of both links
-    public UeAssociation(String deviceId, int port, short ledId, short power, String ip) {
+    public UeAssociation(String deviceId, int port, short ledId, String ip) {
         this.deviceId = deviceId;
         this.port = port;
         this.ledId = ledId;
-        this.power =  power;
-        this.ip = ip;
-    }
 
-    public void setPower(short power) {
-        this.power = power;
+        this.ip = ip;
     }
 
     public String getDeviceId() {
@@ -65,10 +58,6 @@ public class UeAssociation {
 
     public short getLedId() {
         return this.ledId;
-    }
-
-    public short getPower() {
-        return this.power;
     }
 
     public String getIp() {

@@ -1,10 +1,15 @@
 package org.onosproject.pof.VLC;
 
+import org.apache.felix.scr.annotations.Reference;
+import org.apache.felix.scr.annotations.ReferenceCardinality;
+
 import java.util.*;
 
 /**
  * Created by tsf on 10/11/17.
  */
+
+
 public class Test {
 
     private static int x;
@@ -84,7 +89,7 @@ public class Test {
         }
     }
 
-    public String toHexTimeSlot(List<Integer> timeSlotList) {
+    public int toHexTimeSlot(List<Integer> timeSlotList) {
         int timeSlot =  0x0000;
         int flag =  0x0080;
         String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
@@ -112,7 +117,7 @@ public class Test {
 
         hextimeSlot = Integer.toHexString(timeSlot );
 
-        return hextimeSlot;
+        return Integer.valueOf(hextimeSlot, 16);
     }
 
     List<Integer> ueIdList = new ArrayList<>();
@@ -172,9 +177,9 @@ public class Test {
         test.getMaxSignal((short) 1, (byte) 9,(short) 2,(byte) 9,(short) 9 ,(byte) 9);*/
 
         // test short inverted to HexString
-        /*String shortHexStr = test.short2HexStr((short) 1);
+       /* String shortHexStr = test.short2HexStr((short) 85);
         System.out.println("short2HexStr: " + shortHexStr);
-        String intHexStr = test.int2HexStr(1);
+        String intHexStr = test.int2HexStr(85);
         System.out.println("int2HexStr: " + intHexStr);*/
 
         // test compareTo
@@ -190,22 +195,42 @@ public class Test {
 //        System.out.println("path: " + path.toString());
 
         // test toHexTimeSlot ==> [ok]
-/*        List<Integer> timeSlot = new ArrayList<>();
+        /*List<Integer> timeSlot = new ArrayList<>();
         timeSlot.add(1);
         timeSlot.add(2);
         timeSlot.add(3);
         timeSlot.add(4);
-        String hexTimeSlot = test.toHexTimeSlot(timeSlot);
-        System.out.println("time slot " + timeSlot + " ==> hex time slot [" + hexTimeSlot + "]");*/
+        int intTimeSlot = test.toHexTimeSlot(timeSlot);
+        String hexTimeSlot = test.short2HexStr((short) intTimeSlot);
+        System.out.println("time slot " + timeSlot + " ==> int time slot [" + (short) intTimeSlot + "]"
+        + ", hexTimeSlot [" + hexTimeSlot + "]");*/
 
         // test ueIdGenerator ==> [ok]
+/*
         int ueId;
         for(int i = 0; i < 11; i++) {
             ueId = test.ueIdGenerator();
             System.out.println("assign [" + i + "] random ueId by random: " + ueId + "\n");
 //            test.randomGeneratorByMath();
         }
+*/
+        // test Map.putIfAbsent
+        /*Map<Integer, Integer> map = new HashMap<>();
+        System.out.println("map.putIfAbsent:" + map.putIfAbsent(1, 3));
+        System.out.println(map.get(1));
+        System.out.println("map.putIfAbsent:" + map.putIfAbsent(1, 3));*/
 
+        // test convert list to string, ok
+        /*List<String> str = new ArrayList<>();
+        str.add("iflytang");
+        str.add(" loves");
+        str.add(" you.");
+        System.out.println(str);
+        System.out.println(str.toString());*/
 
+        // test org.onlab.util
+        byte[] IntMac = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        System.out.println("Mac with colon: " + org.onlab.util.HexString.toHexString(IntMac, ":") + " " + IntMac.length);
+        System.out.println(Integer.toHexString((short) 1 & 0xff));
     }
 }

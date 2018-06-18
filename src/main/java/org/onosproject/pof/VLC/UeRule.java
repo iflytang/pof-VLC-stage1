@@ -57,12 +57,14 @@ public class UeRule implements UeRuleService {
      * Field name and field id
      * 1. DIP dst_ip
      * 2. VLC Header: LEDID + UID + TIMESLOT + SERVICEID
+     * 3. when distribute id of ue, add MacField.
      */
     public static final int DIP = 1;
     public static final int SERVICEID = 2;
     public static final int TIMESLOT = 3;
     public static final int UID = 4;
     public static final int LEDID = 5;
+    public static final int MacField = 6;
 
 
     protected int gloablTableId = NetworkBoot.globalTableId();
@@ -79,7 +81,7 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstIp), "ffFFffFF"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installInterFlowRule==] match: {}.", matchList);
+        log.info("[==installInterFlowRule==] 1. match: {}.", matchList);
 
         // action: forward
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -87,7 +89,7 @@ public class UeRule implements UeRuleService {
         OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outPort).action();
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
-        log.info("[==installInterFlowRule==] action: {}.", actions);
+        log.info("[==installInterFlowRule==] 2. action: {}.", actions);
 
         // apply flow rule to switch, globalTableId = 0 by default
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
@@ -100,7 +102,7 @@ public class UeRule implements UeRuleService {
                 .withPriority(1)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installInterFlowRule==] applyRuleService deviceId: {} + globalTableId: {}.", deviceId, gloablTableId);
+        log.info("[==installInterFlowRule==] 3. applyRuleService deviceId: {} + TableId: {}.", deviceId, gloablTableId);
     }
 
     // TODO How to get UeId from handleUeAssociation()
@@ -112,7 +114,7 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffFFffFF"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installGWFlowRule==] match: {}.", matchList);
+        log.info("[==installGWFlowRule==] 1. match: {}.", matchList);
 
         // action: add VLC header(8B) before IP packets and forward to UE, now dstIP will be {288b, 32b}
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -128,7 +130,7 @@ public class UeRule implements UeRuleService {
         actions.add(action_add_LEDID);
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
-        log.info("[==installGWFlowRule==] action: {}.", actions);
+        log.info("[==installGWFlowRule==] 2. action: {}.", actions);
 
         // apply flow rule to switch, globalTableId = 0 by default
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
@@ -141,7 +143,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installGWFlowRule==] applyRuleService deviceId: {} + globalTableId: {}.", deviceId, gloablTableId);
+        log.info("[==installGWFlowRule==] 3. applyRuleService deviceId: {} + TableId: {}.", deviceId, gloablTableId);
     }
 
     @Override
@@ -152,6 +154,7 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffFFffFF"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
+        log.info("[==installUpdateGWFlowRule==] 1. match: {}.", matchList);
 
         // action: add VLC header(8B) before IP packets and forward to UE, now dstIP will be {288b, 32b}
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -167,6 +170,7 @@ public class UeRule implements UeRuleService {
         actions.add(action_add_LEDID);
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
+        log.info("[==installUpdateGWFlowRule==] 2. action: {}.", actions);
 
         // get existed flow rules in flow table. if the dstIp equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
@@ -192,6 +196,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
+        log.info("[==installUpdateGWFlowRule==] 3. applyRuleService deviceId: {} + TableId: {}.", deviceId, gloablTableId);
 
     }
 
@@ -202,7 +207,7 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installAPFlowRule==] match dstIP.");
+        log.info("[==installAPFlowRule==] 1. match: {}.", matchList);
 
         // action: (1)remove VLC Header; (2)forward to server; (3)no action to deal with the broadcast packets, so PacketIn
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -212,7 +217,7 @@ public class UeRule implements UeRuleService {
        // actions.add(action_remove_VLC);
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
-        log.info("[==installAPFlowRule==] action: {}.", actions);
+        log.info("[==installAPFlowRule==] 2. action: {}.", actions);
 
         // apply flow rules to AP, globalTableId = 0 by default
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
@@ -225,7 +230,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installAPFlowRule==] applyRuleService {} + tableId {}.",deviceId, tableId);
+        log.info("[==installAPFlowRule==] 3. applyRuleService {} + tableId {}.",deviceId, tableId);
     }
 
     @Override
@@ -235,7 +240,7 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 288, (short) 32, ip2HexStr(dstIp), "ffFFffFF"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installInterFlowRule==] match: {}.", matchList);
+        log.info("[==installUeFlowRule==] 1. match: {}.", matchList);
 
         // action: forward
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -247,7 +252,7 @@ public class UeRule implements UeRuleService {
         actions.add(action_outport);
 //        actions.add(action_outport2);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
-        log.info("[==installInterFlowRule==] action: {}.", actions);
+        log.info("[==installUeFlowRule==] 2. action: {}.", actions);
 
         // apply flow rule to switch, globalTableId = 0 by default
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
@@ -260,7 +265,7 @@ public class UeRule implements UeRuleService {
                 .withPriority(1)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installInterFlowRule==] applyRuleService deviceId: {} + globalTableId: {}.", deviceId, gloablTableId);
+        log.info("[==installUeFlowRule==] 3. applyRuleService deviceId: {} + TableId: {}.", deviceId, gloablTableId);
     }
 
     @Override
@@ -270,13 +275,13 @@ public class UeRule implements UeRuleService {
         ArrayList<Criterion> matchList = new ArrayList<>();
         matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 288, (short) 32, "00000000", "00000000"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installInterFlowRule==] match: {}.", matchList);
+        log.info("[==installGotoTableFlowRule==] 1. match: {}.", matchList);
 
         // action: forward
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
         List<OFAction> actions = new ArrayList<>();
         trafficTreatment.add(DefaultPofInstructions.gotoTable((byte) goToTableId, (byte) 0, (byte) 0, new ArrayList<OFMatch20>()));
-        log.info("[==installInterFlowRule==] action: {}.", actions);
+        log.info("[==installGotoTableFlowRule==] 2. action: {}.", actions);
 
         // apply flow rule to switch, globalTableId = 0 by default
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
@@ -289,6 +294,41 @@ public class UeRule implements UeRuleService {
                 .withPriority(0)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
+        log.info("[==installGotoTableFlowRule==] 3. applyRuleService deviceId: {} + TableId0: {} to TableId1: {}.",
+                deviceId, tableId, goToTableId);
+    }
+
+    @Override
+    public void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP) {
+        // match dstIp {240b, 32b}
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffffffff"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+        log.info("[==installForwardFlowRule==] 1. match: {}.", matchList);
+
+        // action: (1)remove VLC Header; (2)forward to server; (3)no action to deal with the broadcast packets, so PacketIn
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<>();
+        // OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
+        OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport).action();
+        // actions.add(action_remove_VLC);
+        actions.add(action_outport);
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
+        log.info("[==installForwardFlowRule==] 2. action: {}.", actions);
+
+        // apply flow rules to AP, globalTableId = 0 by default
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(DeviceId.deviceId(deviceId))
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withPriority(1)
+                .withCookie(newFlowEntryId)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
+        log.info("[==installForwardFlowRule==] 3. applyRuleService {} + tableId {}.",deviceId, tableId);
     }
 
     @Override
@@ -468,130 +508,7 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void handleReactivePacket(PacketContext context) {
-        if(context.isHandled()) {
-            return;
-        }
-
-        // get deviceId and port, the port maybe not the WIFI port but WAN port
-        InboundPacket inboundPacket = context.inPacket();
-        String deviceId = inboundPacket.receivedFrom().deviceId().toString();
-        int port = (int) inboundPacket.receivedFrom().port().toLong();   // through WAN to report to controller
-
-        // get srcMAC and ip
-        Ethernet ethernetPacket = inboundPacket.parsed();
-        String hwaddr = ethernetPacket.getSourceMAC().toString();   // like "01:02:03:04:05:06"
-        IPv4 iPv4Packet = (IPv4) ethernetPacket.getPayload();
-        String ip = IPv4.fromIPv4Address(iPv4Packet.getSourceAddress()); // like "10.0.0.1"
-
-        // get payload of IPv4, which is broadcast packet
-        byte[] payload = iPv4Packet.getPayload().serialize();
-        short ueId = (short) ((payload[0] << 8) + payload[1]);
-        short ledId1 = (short) ((payload[2] << 8) + payload[3]);
-        byte singnal1 = payload[4];
-        short ledId2 = (short) ((payload[5] << 8) + payload[6]);
-        byte singnal2 = payload[7];
-        short ledId3 = (short) ((payload[8] << 8) + payload[9]);
-        byte singnal3 = payload[10];
-
-        // get the max signal value and its ledId. if all equals, use ledId1.
-        short maxLedId = 0;
-        byte maxSignal = 0;
-        Map<Integer, Integer> LED = new HashMap<>();
-        LED.put(Integer.valueOf(ledId1), Integer.valueOf(singnal1));
-        LED.put(Integer.valueOf(ledId2), Integer.valueOf(singnal2));
-        LED.put(Integer.valueOf(ledId3), Integer.valueOf(singnal3));
-        byte temp = singnal1 > singnal2 ? singnal1 : singnal2;
-        maxSignal = temp > singnal3 ? temp : singnal3;
-        for(Integer key : LED.keySet()) {
-            if(LED.get(key).shortValue() == (maxSignal)) {
-                maxLedId = key.shortValue();
-                break;
-            }
-        }
-
-        // set the broadcast packet's ether type as 0x0908
-        if(ethernetPacket.getEtherType() == 0x0908) {
-            // TODO use Event Mechanism to implement handleUeAssociation() or handleHandover() later
-            handleUeAssociation(deviceId, port, hwaddr, ip, ueId, maxLedId, maxSignal);
-        }
-
-    }
-
-    @Override
-    public void handleUeAssociation(String deviceId, int port, String hwaddr, String ip,
-                                    short ueId, short maxLedId, byte maxSignal) {
-        Map<String, UE> ues = new HashMap<>();
-
-        // 1. update: if ues contains key, then compare with maxSignal, update MAP if different
-        // 2. bind: if ues excludes key, then put it into MAP
-        // Note that: new MAC, then new UeId
-        if(ues.containsKey(hwaddr)) {
-            short tempLedId = ues.get(hwaddr).getCurrentAssociation().getLedId();
-            short tempSignal = ues.get(hwaddr).getCurrentAssociation().getPower();
-            String tempDeviceId = ues.get(hwaddr).getCurrentAssociation().getDeviceId();
-            int tempPort = ues.get(hwaddr).getCurrentAssociation().getPort();
-            if((tempLedId == maxLedId) && (tempSignal == maxSignal)
-                    && (tempDeviceId.equals(tempDeviceId) && (tempPort == port))) {
-                // no update operation
-            } else {
-                // UPDATE-STAGE
-                ues.get(hwaddr).setUeAssociation(new UeAssociation(deviceId, port, maxLedId, maxSignal, ip));
-                UE logUe = ues.get(hwaddr); // used for log
-                UeAssociation logAssociation = logUe.getCurrentAssociation();
-                log.info("[==update info==] UE[id:{}, hwaddr: {}, ip:{}] connects to LED {}, power {}, AP {}, port {}.",
-                        logUe.getUeId(), logUe.getHwaddr(), logUe.getIp(),
-                        logAssociation.getLedId(), logAssociation.getPower(),
-                        logAssociation.getDeviceId(), logAssociation.getPort());
-            }
-        } else {
-            // BIND-STAGE, 1)assign new ueId; 2)raise event to installGatewayFlowRule; 3) update more information in UPDATE-STAGE
-            // TODO installGatewayFlowRule
-            ues.put(hwaddr, new UE(++lastUeId, maxLedId, hwaddr, ip));  //  here assign UeId for all method. ROOT_UEID.
-            ues.get(hwaddr).setUeAssociation(new UeAssociation(maxLedId, maxSignal, ip));  // have associated with light-AP
-            UE logUe = ues.get(hwaddr); // used for log
-            UeAssociation logAssociation = logUe.getCurrentAssociation();
-            log.info("[==bind info==] UE[id:{}, hwaddr: {}, ip:{}] connects to LED {}, power {}.",
-                    logUe.getUeId(), logUe.getHwaddr(), logUe.getIp(),
-                    logAssociation.getLedId(), logAssociation.getPower());
-        }
-    }
-
-    @Override
-    public void installForwardFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP) {
-        // match dstIp {240b, 32b}
-        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
-        ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength((short) DIP, (short) 240, (short) 32, ip2HexStr(dstip), "ffffffff"));
-        trafficSelector.add(Criteria.matchOffsetLength(matchList));
-        log.info("[==installAPFlowRule==] match dstIP.");
-
-        // action: (1)remove VLC Header; (2)forward to server; (3)no action to deal with the broadcast packets, so PacketIn
-        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
-        List<OFAction> actions = new ArrayList<>();
-        // OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
-        OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport).action();
-        // actions.add(action_remove_VLC);
-        actions.add(action_outport);
-        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
-        log.info("[==installAPFlowRule==] action: {}.", actions);
-
-        // apply flow rules to AP, globalTableId = 0 by default
-        long newFlowEntryId = flowTableStore.getNewFlowEntryId(DeviceId.deviceId(deviceId), gloablTableId);
-        FlowRule.Builder flowRule = DefaultFlowRule.builder()
-                .forDevice(DeviceId.deviceId(deviceId))
-                .forTable(tableId)
-                .withSelector(trafficSelector.build())
-                .withTreatment(trafficTreatment.build())
-                .withPriority(1)
-                .withCookie(newFlowEntryId)
-                .makePermanent();
-        flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installAPFlowRule==] applyRuleService {} + tableId {}.",deviceId, tableId);
-    }
-
-   @Override
-   public String toHexTimeSlot(List<Integer> timeSlotList) {
+    public int toDecTimeSlot(List<Integer> timeSlotList) {
        int timeSlot =  0x0000;
        int flag =  0x0080;
        String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
@@ -617,21 +534,27 @@ public class UeRule implements UeRuleService {
            }
        }
 
-       hextimeSlot = Integer.toHexString(timeSlot );
+       hextimeSlot = Integer.toHexString(timeSlot);
 
-       return hextimeSlot;
+       return Integer.valueOf(hextimeSlot, 16);
    }
 
-
-   // generate UeId
-   protected List<Integer> ueIdList = new ArrayList<>();  // store ueId in ArrayList
-   @Override
-   public int ueIdGenerator() {
+    // generate UeId and store it in ueIdList
+    protected List<Integer> ueIdList = new ArrayList<>();  // store ueId in ArrayList
+    protected Map<String, Integer> Mac_UeId = new HashMap<>(); // store mac_ueId in Map
+    @Override
+    public int ueIdGenerator(String mac) {
        // assign UeId
        Random random = new Random();
        int ueId = random.nextInt(128) + 1;  // ueId from 1 to 128
        int randRange = 128;   // at most 128 ueId
        int i;   // index of for loop
+
+       // if ueId have assigned, forbid to reassign
+       if(Mac_UeId.get(mac) != null) {
+           log.info("Ue [{}] have assigned UeId [{}], fail to reassign!", mac, Mac_UeId.get(mac));
+           return Mac_UeId.get(mac);
+       }
 
        // if ueIdList full, fail to assign ueId
        if(ueIdList.size() == randRange) {
@@ -645,7 +568,7 @@ public class UeRule implements UeRuleService {
            Integer assignedId = ueIdList.get(i);
            if(ueId == assignedId) {
                int tempUeId = random.nextInt(128) + 1;
-               log.info("Warning! ueId conflicts! There have been ueId ==> {}, reassign ueId ==> {}", ueId, tempUeId);
+               log.info("Warning! ueId conflicts! There have been ueId ==> [{}], reassign ueId ==> [{}]", ueId, tempUeId);
                ueId = tempUeId;
                i = 0;
                i--;     // i-- then i++, finally i = 0
@@ -654,14 +577,15 @@ public class UeRule implements UeRuleService {
 
        // no conflicts for ueId, then store in ueIdSet
        ueIdList.add(ueId);
+       Mac_UeId.put(mac, ueId);
        Collections.sort(ueIdList);     // sort ueId in ascending order
-       log.info("Store ueId {} in ueIdSet {}.", ueId, ueIdList);
+       log.info("Store ue [{}] with ueId [{}] in UeList{} and Mac_ueId: {}", mac, ueId, ueIdList, Mac_UeId);
        return ueId;
    }
 
-   // remove ueId by Object
-   @Override
-   public List<Integer> removeUeId(Integer ueId) {
+    // remove ueId by Object
+    @Override
+    public List<Integer> removeUeId(Integer ueId) {
         ueIdList.remove(ueId);
         return ueIdList;
    }

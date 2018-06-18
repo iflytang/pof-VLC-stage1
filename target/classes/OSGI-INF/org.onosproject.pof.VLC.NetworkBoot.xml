@@ -9,4 +9,5 @@
     <reference name="flowRuleService" interface="org.onosproject.net.flow.FlowRuleService" cardinality="1..1" policy="static" bind="bindFlowRuleService" unbind="unbindFlowRuleService"/>
     <reference name="flowTableStore" interface="org.onosproject.net.table.FlowTableStore" cardinality="1..1" policy="static" bind="bindFlowTableStore" unbind="unbindFlowTableStore"/>
     <reference name="ueRuleService" interface="org.onosproject.pof.VLC.UeRuleService" cardinality="1..1" policy="static" bind="bindUeRuleService" unbind="unbindUeRuleService"/>
+    <reference name="networkEventService" interface="org.onosproject.pof.VLC.NetworkEventService" cardinality="1..1" policy="static" bind="bindNetworkEventService" unbind="unbindNetworkEventService"/>
 </scr:component>
