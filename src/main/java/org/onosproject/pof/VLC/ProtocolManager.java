@@ -1,7 +1,9 @@
 package org.onosproject.pof.VLC;
 
+import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.*;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.net.ConnectPoint;
@@ -26,6 +28,8 @@ import java.util.List;
  * @date 18-6-19
  * @desp
  */
+@Component(immediate = true)
+@Service
 public class ProtocolManager implements ProtocolService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
