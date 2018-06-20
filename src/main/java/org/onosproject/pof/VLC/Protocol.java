@@ -21,6 +21,16 @@ public class Protocol extends BasePacket {
     // reply length
     final static int MIN_HEADER_LEN = 15; // type:2+len:2+timestamp:1+led:2+ue:2+mac:6 = 15B
 
+    final static int SRC_PORT = 0x0000;   // reply udp
+    final static int DST_PORT = 0x0000;   // reply udp
+    final static int DATA_DST_PORT = 4050; // data udp
+
+    final static int REQUEST = 0x0907;
+    final static int REPLY = 0x0908;
+    final static int ACK1 = 0x0909;       // client/server ack
+    final static int ACK2 = 0x090a;       // server/client ack
+    final static int FEEDBACK = 0x090b;
+
     // reply msg
     protected short type;
     protected short length;
@@ -39,7 +49,7 @@ public class Protocol extends BasePacket {
         return this.type;
     }
 
-    public void setType(final byte type) {
+    public void setType(final short type) {
         this.type = type;
     }
 

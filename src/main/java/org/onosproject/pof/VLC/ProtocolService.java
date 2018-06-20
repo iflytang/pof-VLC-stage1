@@ -25,7 +25,7 @@ public interface ProtocolService {
     /**
      * CONTROLLER/UE build reply message to ue, assign with an ueID
      */
-    void buildReply(Ethernet packet, short ledID, short ueID);
+    Ethernet buildReply(Ethernet packet, short ledID, short ueID, short outgoingMsgType);
 
     void sendReply(PacketContext context, Ethernet reply);
 

@@ -45,7 +45,7 @@ public class ProtocolManager implements ProtocolService {
 
     // build and send 'reply' message
     @Override
-    public void buildReply(Ethernet packet, short ledID, short ueID) {
+    public Ethernet buildReply(Ethernet packet, short ledID, short ueID, short outgoingMsgType) {
         // parse info
         MacAddress srcMAC = packet.getSourceMAC();
         MacAddress dstMAC = packet.getDestinationMAC();
@@ -67,11 +67,13 @@ public class ProtocolManager implements ProtocolService {
 
         // build UDP datagram
         UDP udpReply = new UDP();
-        udpReply.setSourcePort(0x0000);               // controller's
-        udpReply.setDestinationPort(0x0000);          // ue's
+        udpReply.setSourcePort(Protocol.SRC_PORT);     // controller's
+        udpReply.setDestinationPort(Protocol.DST_PORT);// ue's
 
         // build REPLY payload
         Protocol reply = new Protocol();
+        reply.setType((outgoingMsgType));             // outgoing msg type
+        reply.setLength((short) Protocol.MIN_HEADER_LEN);
         reply.setTimestamp((byte) 0);                 // timestamp, not use now
         reply.setLedID(ledID);                        // ledID with max power
         reply.setUeID(ueID);                          // ueID assigned by controller
@@ -81,6 +83,8 @@ public class ProtocolManager implements ProtocolService {
         udpReply.setPayload(reply);
         ipv4Reply.setPayload(udpReply);
         ethReply.setPayload(ipv4Reply);
+
+        return ethReply;
     }
 
     @Override
