@@ -33,6 +33,7 @@ import java.util.Map;
  *
  * @Description boot the network: add devices, enable ports, setup flow rules
  */
+
 @Component(immediate = true)
 public class NetworkBoot {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -67,25 +68,46 @@ public class NetworkBoot {
     private static ApplicationId appId;
     protected ReactivePacketInProcessor packetProcessor =  new ReactivePacketInProcessor();
 
+    /* used for removing tables */
+    private byte dp1_global_table_id_1;           // for deviceId = 1
+    private byte dp1_global_table_id_2;           // for deviceId = 1
+
+    /* used for deviceId. */
+    DeviceId deviceId1 = DeviceId.deviceId("pof:0000000000000001");
+
     @Activate
     protected void activate() {
-
+        /* register */
         appId = coreService.registerApplication("org.onosproject.pof-VLC");
 //        ueRuleService.handlePortStatus();     // now the switch has been initiated with enabled ports, so comment it.
-        ueRuleService.handleConnetionUp();
-//        packetService.addProcessor(packetProcessor, PacketProcessor.director(2));
+
+        /* monitor the packet_in packets. */
+        packetService.addProcessor(packetProcessor, PacketProcessor.director(2));
+
+        /* send pof_flow_table to deviceId = 1 */
+        byte tableId = ueRuleService.send_pof_flow_table(deviceId1, "FirstEntryTable", appId);
+        byte next_table_id = ueRuleService.send_pof_flow_table(deviceId1, "AddVlcHeaderTable", appId);
+        dp1_global_table_id_1 = tableId;
+        dp1_global_table_id_2 = next_table_id;
+
+
         try{
             Thread.sleep(1000);
         } catch (Exception e) {
             log.info("sleep wrong in Network before sending flow rules.");
         }
 
+        /* send write_metadata and add_vlc rule in deviceId = 1 */
+        ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId1, tableId, next_table_id, "0a000002", 12);
+        ueRuleService.install_pof_add_vlc_header_entry(deviceId1, next_table_id, "0a000002", 2, 1,
+                (byte) 0x01, (short) 0x0002, (short) 0x0003, (short) 0x0004);
+
         // for GW (IPL219), add VLC header and forward, downlink
-        ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 10, 11, 12, 13);
+//        ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 10, 11, 12, 13);
         // for AP (OpenWrt132), forward, uplink
-        ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
+//        ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
         // for inter_SW (IPL218), remove VLC header and forward, downlink
-        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 3, 1);  //  downlink, port2 ==> 220, port3 ==> AP
+//        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 3, 1);  //  downlink, port2 ==> 220, port3 ==> AP
 
         // uncomment this for ping, uplink
 //        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
@@ -107,8 +129,13 @@ public class NetworkBoot {
 
     @Deactivate
     protected void deactivate() {
-//        packetService.removeProcessor(packetProcessor);
-        ueRuleService.handleConnectionDown();
+        /* remove packet monitor processor */
+        packetService.removeProcessor(packetProcessor);
+
+        /* remove tables for deviceId = 1 */
+        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_1);
+        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_2);
+
         log.info("NetworkBoot Stopped, appId: {}.", appId);
     }
 
@@ -146,7 +173,7 @@ public class NetworkBoot {
              *          1. request(0x0907): raise UeAssociation event
              *          2. reply(0x0908): assign an ueID, and send back to ue
              *          3. ack1(0x0909): send reply until receiving ack
-             *          4. ack2(0x090a): raise VLC_HEADER event
+             *          4. ack2(0x090a): raise VLC_HEADER(0x1918) event
              *          5. data flow: payload does not contain 'type'
              *          6. feedback(0x090b): monitor location and raise VLC_UPDATE event if maxLedId changes
              */
@@ -175,9 +202,14 @@ public class NetworkBoot {
 
                 log.info("1 srcMac: {}, dstMac: {}", srcMAC, dstMAC);
                 log.info("1 srcIP: {}, dstIP: {}", srcIP, dstIP);
-                log.info("2 ipv4: {}", ipv4Packet.getSourceAddress());
                 log.info("2 Ip4Address.valueOf: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()));
                 log.info("2 Ip4Address.valueOf.toString: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString());
+
+                /* test whether can build and send reply msg, should comment when no testing */
+//                Ethernet ethReply1 = protocolService.buildReply(ethernetPacket,
+//                        (short) 0x01, (short) 0x02, (short) Protocol.REPLY);
+//                protocolService.sendReply(context, ethReply1);
+//                log.info("send reply to deviceId<{}>, port<{}> successfully.", deviceId, port);
 
                 if (ipv4Packet.getProtocol() == IPv4.PROTOCOL_UDP) {
                     UDP udpPacket = (UDP) ipv4Packet.getPayload();

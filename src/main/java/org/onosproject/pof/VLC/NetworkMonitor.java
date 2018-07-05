@@ -39,7 +39,7 @@ public class NetworkMonitor {
     public void activate() {
         networkEventService.addListener(listener);
         log.info("Network Monitor Module Started.");
-        timeScheduler();      // uncomment this to test post NetworkEvent periodically
+        //timeScheduler();      // uncomment this to test post NetworkEvent periodically
     }
 
     @Deactivate
@@ -184,7 +184,7 @@ public class NetworkMonitor {
         }
     }
 
-    public static Map<String, Integer> getMacUeId(String hwaddr) {
+    public static Map<String, Integer> getMacUeId() {
         return Mac_UeId;
     }
 

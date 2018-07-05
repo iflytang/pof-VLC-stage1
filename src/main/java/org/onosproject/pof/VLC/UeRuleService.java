@@ -1,5 +1,6 @@
 package org.onosproject.pof.VLC;
 
+import org.onosproject.core.ApplicationId;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.packet.PacketContext;
 
@@ -52,6 +53,11 @@ public interface UeRuleService {
     // convert int num to 4B HexStr
     String int2HexStr(int intNum);
 
+    // convert byte to hex_str
+    String byte2HexStr(byte byteNum);
+
+    // convert bytes to hex_str
+    String bytes_to_hex_str(byte[] b);
 
     /**
      * functions for network boot
@@ -67,9 +73,7 @@ public interface UeRuleService {
 
     // enable ports of switches and AP when network boot
     void handlePortStatus();
-
-
-
+    
     // set timeSlot mask, return timeSlot int
     int toDecTimeSlot(List<Integer> timeSlotList);
 
@@ -78,5 +82,21 @@ public interface UeRuleService {
 
     // remove ueId by Object, return remained ueIdList
     List<Integer> removeUeId(Integer ueId);
+
+    /**
+     * @desp new design to add VLC header
+     * @header type + len + ts + ledID + ueID + service_flag
+     */
+    byte send_pof_flow_table(DeviceId deviceId, String table_name, ApplicationId appId);
+
+    void remove_pof_flow_table(DeviceId deviceId, byte tableId);
+
+    void install_pof_output_entry(String deviceId, int tableId, String dstIp, int outport, int priority);
+
+    void install_pof_write_metadata_from_packet_entry(DeviceId deviceId, int tableId, int next_table_id,
+                                                      String dstIP, int priority);
+
+    void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
+                                          byte timeSlot, short ledId, short ueId, short serviceId);
 
 }
