@@ -66,7 +66,7 @@ public interface UeRuleService {
     List<DeviceId> getDeviceList();
 
     // distribute flow table to switches when network boot
-    void handleConnetionUp();
+    void handleConnetionUp(ApplicationId appId);
 
     // remove all flow tables from switches and AP when network shutdown
     void handleConnectionDown();
@@ -89,7 +89,7 @@ public interface UeRuleService {
      */
     byte send_pof_flow_table(DeviceId deviceId, String table_name, ApplicationId appId);
 
-    void remove_pof_flow_table(DeviceId deviceId, byte tableId);
+    void remove_pof_flow_table(DeviceId deviceId, byte tableId, ApplicationId appId);
 
     void install_pof_output_entry(String deviceId, int tableId, String dstIp, int outport, int priority);
 

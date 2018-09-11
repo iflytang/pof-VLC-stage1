@@ -133,8 +133,8 @@ public class NetworkBoot {
         packetService.removeProcessor(packetProcessor);
 
         /* remove tables for deviceId = 1 */
-        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_1);
-        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_2);
+        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_1, appId);
+        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_2, appId);
 
         log.info("NetworkBoot Stopped, appId: {}.", appId);
     }
@@ -142,11 +142,6 @@ public class NetworkBoot {
     public static int globalTableId() {
         return globalTableId;
     }
-
-    public static ApplicationId appId() {
-        return appId;
-    }
-
 
     protected Map<String, Integer> Mac_LedId = new HashMap<>();     // store maxLedId
     protected Map<String, Integer> Mac_UeId = new HashMap<>();      // store ueId

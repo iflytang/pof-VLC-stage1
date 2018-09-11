@@ -72,7 +72,7 @@ public class UeRule implements UeRuleService {
 
 
     protected int gloablTableId = NetworkBoot.globalTableId();
-    protected ApplicationId appId = NetworkBoot.appId();
+
     protected short lastUeId = 0;  // used for ue's id assignment
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -401,8 +401,7 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void handleConnetionUp() {
-        appId = NetworkBoot.appId();
+    public void handleConnetionUp(ApplicationId appId) {
         List<DeviceId> deviceIdList = getDeviceList();
         log.info("appId ==> {}\n DIP ==> {}\n deviceList: {}", appId, DIP, deviceIdList.toString());
 
@@ -656,8 +655,9 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void remove_pof_flow_table(DeviceId deviceId, byte tableId) {
+    public void remove_pof_flow_table(DeviceId deviceId, byte tableId, ApplicationId appId) {
         // remove flow rules before removing flow table
+        flowRuleService.removeFlowRulesById(appId);
         flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId));
     }
 
