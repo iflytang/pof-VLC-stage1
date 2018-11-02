@@ -3,6 +3,7 @@ package org.onosproject.pof.VLC;
 import org.apache.felix.scr.annotations.*;
 import org.onosproject.event.EventDeliveryService;
 import org.onosproject.event.ListenerRegistry;
+import org.onosproject.net.DeviceId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,14 +66,17 @@ public class NetworkMonitor {
             log.info("Receive Event: {} ==> ueId: {}, deviceId: {}, hwaddr: {}, ip: {}, ledId:{}.",
                     event.type(), ueId, deviceId, hwaddr, ip, ledId);
 
-            // TODO set all time slot for one flow temporary
-            List<Integer> tempTimeSlot = new ArrayList<>();
+            // @deprecated: TODO set all time slot for one flow temporary
+           /* List<Integer> tempTimeSlot = new ArrayList<>();
             tempTimeSlot.add(1);
             tempTimeSlot.add(2);
             tempTimeSlot.add(3);
             tempTimeSlot.add(4);
             int timeSlot = ueRuleService.toDecTimeSlot(tempTimeSlot);
-            log.info("[== TimeSlot ==] time slot: {}.", timeSlot);
+            log.info("[== TimeSlot ==] time slot: {}.", timeSlot);*/
+
+           /* we set timeSlot is same as ledId. */
+           byte timeSlot = (byte) ledId;
 
             if(event.type().equals(NetworkEvent.Type.UE_ASSOCIATION)) {
 //                log.info("<=======================================");
@@ -163,24 +167,25 @@ public class NetworkMonitor {
         }
 
 
-        // handle VLC_header
+        // handle VLC_header: feedback's srcIp is our flow's dstIp
         public void handleVLCHeader(String deviceId, String dstIp, int outPort, int DIP,
                                     int ledId, int ueId, int timeSlot, int serviceId) {
             // timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCHeader==] installGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
-            ueRuleService.installGatewaySwitchFlowRule(deviceId, dstIp, outPort, DIP,
-                    ledId, ueId, timeSlot, serviceId);
+            ueRuleService.install_pof_add_vlc_header_entry(NetworkBoot.deviceId_gw, NetworkBoot.gw_table_id_1, dstIp, outPort,
+                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
         }
 
-        // handle VLC_update
+        // handle VLC_update: feedback's srcIp is our flow's dstIp
         public void handleVLCUpdate(String deviceId, String dstIp, int outPort, int DIP,
                                     int ledId, int ueId, int timeSlot, int serviceId) {
             // timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCUpdater==] updateGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
-            ueRuleService.updateGatewaySwitchFlowRule(deviceId, dstIp, outPort, DIP,
-                    ledId, ueId, timeSlot, serviceId);
+            // we will delete old entry before sending new flow entry
+            ueRuleService.install_pof_add_vlc_header_entry(NetworkBoot.deviceId_gw, NetworkBoot.gw_table_id_1, dstIp, outPort,
+                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
         }
     }
 

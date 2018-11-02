@@ -68,12 +68,13 @@ public class NetworkBoot {
     private static ApplicationId appId;
     protected ReactivePacketInProcessor packetProcessor =  new ReactivePacketInProcessor();
 
-    /* used for removing tables */
-    private byte dp1_global_table_id_1;           // for deviceId = 1
-    private byte dp1_global_table_id_2;           // for deviceId = 1
-
     /* used for deviceId. */
-    DeviceId deviceId1 = DeviceId.deviceId("pof:0000000000000001");
+    static public DeviceId deviceId_gw = DeviceId.deviceId("pof:0000000000000001");
+    static public byte gw_table_id_0;
+    static public byte gw_table_id_1;
+
+    static public DeviceId deviceId_ap = DeviceId.deviceId("pof:0000000000000002");
+    static public byte ap_table_id_0;
 
     @Activate
     protected void activate() {
@@ -84,12 +85,12 @@ public class NetworkBoot {
         /* monitor the packet_in packets. */
         packetService.addProcessor(packetProcessor, PacketProcessor.director(2));
 
-        /* send pof_flow_table to deviceId = 1 */
-        byte tableId = ueRuleService.send_pof_flow_table(deviceId1, "FirstEntryTable", appId);
-        byte next_table_id = ueRuleService.send_pof_flow_table(deviceId1, "AddVlcHeaderTable", appId);
-        dp1_global_table_id_1 = tableId;
-        dp1_global_table_id_2 = next_table_id;
+        /* send pof_flow_table to deviceId = gw, used for add_vlc_header */
+        gw_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_gw, "FirstEntryTable", appId);
+        gw_table_id_1 = ueRuleService.send_pof_flow_table(deviceId_gw, "AddVlcHeaderTable", appId);
 
+        /* send pof_flow_table to deviceId = ap, used for packet-in */
+        ap_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_ap, "FirstEntryTable", appId);
 
         try{
             Thread.sleep(1000);
@@ -97,34 +98,10 @@ public class NetworkBoot {
             log.info("sleep wrong in Network before sending flow rules.");
         }
 
-        /* send write_metadata and add_vlc rule in deviceId = 1 */
-        ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId1, tableId, next_table_id, "0a000002", 12);
-        ueRuleService.install_pof_add_vlc_header_entry(deviceId1, next_table_id, "0a000002", 2, 1,
+        /* send write_metadata and add_vlc rule in deviceId = gw */
+        ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, "0a000002", 12);
+        ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, "0a000002", 2, 1,
                 (byte) 0x01, (short) 0x0002, (short) 0x0003, (short) 0x0004);
-
-        // for GW (IPL219), add VLC header and forward, downlink
-//        ueRuleService.installGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 10, 11, 12, 13);
-        // for AP (OpenWrt132), forward, uplink
-//        ueRuleService.installAPFlowRule("pof:0000000000000001",0, "192.168.4.169", 1, 1);
-        // for inter_SW (IPL218), remove VLC header and forward, downlink
-//        ueRuleService.installUeSwitchFlowRule("pof:0000000000000003", "192.168.4.169", 3, 1);  //  downlink, port2 ==> 220, port3 ==> AP
-
-        // uncomment this for ping, uplink
-//        ueRuleService.installGoToTableFlowRule("pof:0000000000000003", 0, 1);
-//        ueRuleService.installForwardFlowRule("pof:0000000000000003", 1,"192.168.4.168", 1, 1);  // ue, port1 == eth4, port3 == wlan0
-//        ueRuleService.installForwardFlowRule("pof:0000000000000002", 0,"192.168.4.168", 1, 1);  // gw
-        try{
-            Thread.sleep(1000);
-        } catch (Exception e) {
-            log.info("sleep wrong in Network before updating flow rules.");
-        }
-//        ueRuleService.updateGatewaySwitchFlowRule("pof:0000000000000002", "192.168.4.169", 2, 1, 1, 2, 3, 4);
-        try{
-            Thread.sleep(1 * 1000);
-        } catch (Exception e) {
-            log.info("sleep wrong in Network before updating rules.");
-        }
-        log.info("NetwotkBoot Started, appId: {}.", appId);
     }
 
     @Deactivate
@@ -132,9 +109,12 @@ public class NetworkBoot {
         /* remove packet monitor processor */
         packetService.removeProcessor(packetProcessor);
 
-        /* remove tables for deviceId = 1 */
-        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_1, appId);
-        ueRuleService.remove_pof_flow_table(deviceId1, dp1_global_table_id_2, appId);
+        /* remove tables for deviceId = gw */
+        ueRuleService.remove_pof_flow_table(deviceId_gw, gw_table_id_0, appId);
+        ueRuleService.remove_pof_flow_table(deviceId_gw, gw_table_id_1, appId);
+
+        /* remove tables for deviceId = ap */
+        ueRuleService.remove_pof_flow_table(deviceId_ap, ap_table_id_0, appId);
 
         log.info("NetworkBoot Stopped, appId: {}.", appId);
     }
@@ -167,8 +147,8 @@ public class NetworkBoot {
              * procedure: parse ETH_IPv4_UDP_PAYLOAD
              *          1. request(0x0907): raise UeAssociation event
              *          2. reply(0x0908): assign an ueID, and send back to ue
-             *          3. ack1(0x0909): send reply until receiving ack
-             *          4. ack2(0x090a): raise VLC_HEADER(0x1918) event
+             *          3. ack1(0x0909): send reply until receiving ack (@deprecated)
+             *          4. ack2(0x090a): raise VLC_HEADER(0x1918) event (@deprecated)
              *          5. data flow: payload does not contain 'type'
              *          6. feedback(0x090b): monitor location and raise VLC_UPDATE event if maxLedId changes
              */
@@ -232,12 +212,13 @@ public class NetworkBoot {
                             log.info("Post Network Event: {}", UE_ASSOCIATION);
 
                             // if ueID differs, then send the reply
-                            int storedUeId;
+                            short storedUeId;
                             if (NetworkMonitor.getMacUeId().get(srcMAC) != null) {
-                                storedUeId = NetworkMonitor.getMacUeId().get(srcMAC);
+                                storedUeId = NetworkMonitor.getMacUeId().get(srcMAC).shortValue();
+                                Mac_UeId.putIfAbsent(srcMAC, (int) storedUeId);
                                 if (storedUeId != ueID) {
                                     Ethernet ethReply = protocolService.buildReply(ethernetPacket,
-                                            ledID, ueID, (short) Protocol.REPLY);
+                                            ledID, storedUeId, (short) Protocol.REPLY);
                                     protocolService.sendReply(context, ethReply);
 
                                     return;
@@ -253,8 +234,8 @@ public class NetworkBoot {
                         log.info("ueID: {} in Mac_ueID: {}", NetworkMonitor.getMacUeId().get(srcMAC),
                                                             NetworkMonitor.getMacUeId());
 
-                        // should send ACK2 back, and raise VLC_HEADER
-                        if (type == Protocol.ACK1) {
+                        // @Deprecated: should send ACK2 back, and raise VLC_HEADER
+                        /*if (type == Protocol.ACK1) {
                             short ueID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
@@ -271,13 +252,22 @@ public class NetworkBoot {
                             Ethernet ethReply = protocolService.buildReply(ethernetPacket,
                                     ledID, ueID, (short) Protocol.ACK2);
                             protocolService.sendReply(context, ethReply);
-                        }
+                        }*/
 
                         // should monitor whether storedLedID changes, and raise VLC_UPDATE
                         if (type == Protocol.FEEDBACK) {
                             short ueID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
+
+                            // double check (ack), if ueId differs, send Reply again
+                            if (Mac_UeId.get(srcMAC) != ueID) {
+                                short storedUeID = Mac_UeId.get(srcMAC).shortValue();
+                                Ethernet ethReply = protocolService.buildReply(ethernetPacket,
+                                        ledID, storedUeID, (short) Protocol.REPLY);
+                                protocolService.sendReply(context, ethReply);
+                                return;
+                            }
 
                             int storedLedId, storedPower;
                             if (Mac_LedId.get(srcMAC) != null) {

@@ -57,7 +57,7 @@ public class UeRule implements UeRuleService {
     /**
      * Field name and field id
      * 1. DIP dst_ip
-     * 2. VLC Header: Type + len + timeslot + LEDID + UID + SERVICEID
+     * 2. VLC Header: Type(2B) + len(2B) + timeslot(1B) + LEDID(2B) + UID(2B) + SERVICEID(2B)
      * 3. when distribute id of ue, add MacField.
      */
     public static final short SIP = 12;
@@ -109,7 +109,7 @@ public class UeRule implements UeRuleService {
         log.info("[==installInterFlowRule==] 3. applyRuleService deviceId: {} + TableId: {}.", deviceId, gloablTableId);
     }
 
-    // TODO How to get UeId from handleUeAssociation()
+    // see updateGatewaySwitchFlowRule()
     @Override
     public void installGatewaySwitchFlowRule(String deviceId, String dstip, int outPort, int DIP,
                                              int ledId, int ueId, int timeSlot, int serviceId) {
@@ -724,7 +724,6 @@ public class UeRule implements UeRuleService {
                 .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len));
         trafficTreatment.add(DefaultPofInstructions
                 .gotoTable((byte) next_table_id, next_table_match_field_num, next_table_packet_offset, match20List));
-//                .gotoDirectTable((byte) next_table_id, (byte) 0, (short) 0, 0, new OFMatch20()));
 
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
         FlowRule.Builder flowRule = DefaultFlowRule.builder()
@@ -748,6 +747,8 @@ public class UeRule implements UeRuleService {
         short vlc_offset = 336;  // begin of udp payload: 42*8=336 bits
         short vlc_length = 88;   // 11 * 8 bits
         short VLC = 0x16;
+
+        timeSlot = (byte) ledId; // VLC require to set
 
         // metadata bits
         short metadata_offset = 32;
@@ -787,6 +788,19 @@ public class UeRule implements UeRuleService {
         vlc_len_field.setFieldId(len);
         vlc_len_field.setOffset((short) (vlc_offset + 16));
         vlc_len_field.setLength((short) 16);
+
+        // get existed flow rules in flow table. if the dstIp equals, then delete it
+        Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
+        existedFlowRules = flowTableStore.getFlowEntries(deviceId, FlowTableId.valueOf(tableId));
+        if(existedFlowRules != null) {
+            for(Integer flowEntryId : existedFlowRules.keySet()) {
+                log.info("existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()) ==> {}",
+                        existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()));
+                if(existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build())) {
+                    flowTableService.removeFlowEntryByEntryId(deviceId, tableId, flowEntryId);
+                }
+            }
+        }
 
         // vlc_len = vlc.header + udp.payload, so metadata minus udp.header
         short vlc_len = (short) (len - 8);
