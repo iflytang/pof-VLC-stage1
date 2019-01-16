@@ -22,6 +22,7 @@ import org.onosproject.net.table.FlowTableStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Mac;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -125,7 +126,8 @@ public class NetworkBoot {
 
     protected Map<String, Integer> Mac_LedId = new HashMap<>();     // store maxLedId
     protected Map<String, Integer> Mac_UeId = new HashMap<>();      // store ueId
-    protected Map<Integer, Integer> Led_Power = new HashMap<>();    // store led and its power
+//    protected Map<Integer, Integer> Led_Power = new HashMap<>();    // store led and its power
+    protected Map<String, Map<Integer, Integer>> Mac_led_power = new HashMap<>();
     protected class ReactivePacketInProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
@@ -147,8 +149,8 @@ public class NetworkBoot {
              * procedure: parse ETH_IPv4_UDP_PAYLOAD
              *          1. request(0x0907): raise UeAssociation event
              *          2. reply(0x0908): assign an ueID, and send back to ue
-             *          3. ack1(0x0909): send reply until receiving ack (@deprecated)
-             *          4. ack2(0x090a): raise VLC_HEADER(0x1918) event (@deprecated)
+             *        //  3. ack1(0x0909): send reply until receiving ack (@deprecated)
+             *        //  4. ack2(0x090a): raise VLC_HEADER(0x1918) event (@deprecated)
              *          5. data flow: payload does not contain 'type'
              *          6. feedback(0x090b): monitor location and raise VLC_UPDATE event if maxLedId changes
              */
@@ -203,26 +205,37 @@ public class NetworkBoot {
                             byte signal = inboundPacket.unparsed().get(49);
 
                             Mac_LedId.put(srcMAC, (int) ledID);
-                            Led_Power.put((int) ledID, (int) signal);
-
-                            // raise UE_ASSOCIATION event, we check ueId, maxLedId, srcIp in handleUeAssociation()
-                            NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
-                                    ueID, ledID, deviceId, srcMAC, srcIP);
-                            networkEventService.post(UE_ASSOCIATION);
-                            log.info("Post Network Event: {}", UE_ASSOCIATION);
+//                            Led_Power.put((int) ledID, (int) signal);
+                            Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
 
                             // if ueID differs, then send the reply
                             short storedUeId;
-                            if (NetworkMonitor.getMacUeId().get(srcMAC) != null) {
+                            if (NetworkMonitor.getMacUeId().get(srcMAC) != null) { // later registration
+
+                                // check stored 'ueId'
                                 storedUeId = NetworkMonitor.getMacUeId().get(srcMAC).shortValue();
                                 Mac_UeId.putIfAbsent(srcMAC, (int) storedUeId);
+
                                 if (storedUeId != ueID) {
+                                    // raise UE_ASSOCIATION event, we check ueId, maxLedId, srcIp in handleUeAssociation()
+                                    NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
+                                            ueID, ledID, deviceId, srcMAC, srcIP);
+                                    networkEventService.post(UE_ASSOCIATION);
+                                    log.info("Post Network Event: {}", UE_ASSOCIATION);
+
+                                    // send reply back to UE
                                     Ethernet ethReply = protocolService.buildReply(ethernetPacket,
                                             ledID, storedUeId, (short) Protocol.REPLY);
                                     protocolService.sendReply(context, ethReply);
 
                                     return;
                                 }
+                            } else {   // first registration
+                                // raise UE_ASSOCIATION event
+                                NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
+                                        ueID, ledID, deviceId, srcMAC, srcIP);
+                                networkEventService.post(UE_ASSOCIATION);
+                                log.info("First Post Network Event: {}", UE_ASSOCIATION);
                             }
                         }
 
@@ -272,20 +285,28 @@ public class NetworkBoot {
                             int storedLedId, storedPower;
                             if (Mac_LedId.get(srcMAC) != null) {
                                 storedLedId = Mac_LedId.get(srcMAC);
-                                storedPower = Led_Power.get(storedLedId);
+                                // if 'storedLedId' changes, clear the power
+                                if (ledID != storedLedId) {  // ledId should be max power
+                                    Mac_led_power.get(srcMAC).put(storedLedId, 0);
+                                }
+
+                                storedPower = Mac_led_power.get(srcMAC).get(storedLedId);
 
                                 // if ledID with max power changes, update VLC_HEADER in handle_VLCUpdate
-                                if ((signal > storedPower) && (ledID != storedLedId)) {
+                                if ((ledID != storedLedId) && (signal > storedPower)) {
                                     NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
                                             "VLC_HEADER_UPDATE", ueID, ledID, deviceId, srcMAC, srcIP);
                                     networkEventService.post(VLC_HEADER_UPDATE);
                                     log.info("Post Network Event: {}", VLC_HEADER_UPDATE);
 
                                     Mac_LedId.put(srcMAC, (int) ledID);
-                                    Led_Power.put((int) ledID, (int) signal);
+                                    Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
                                 } else {
-                                    Led_Power.put((int) ledID, (int) signal);
+                                    Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
                                 }
+                            } else {  // first time
+                                Mac_LedId.put(srcMAC, (int) ledID);
+                                Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
                             }
                         }
                     }

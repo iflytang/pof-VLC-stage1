@@ -11,9 +11,10 @@ import static com.google.common.base.Preconditions.checkArgument;
  * @author tsf
  * @date 18-6-19
  * @desp online protocol of reply msg
- *       1. ue --> Broadcast --> ctl
- *       2. ue <--   Reply   <-- ctl
- *       3. ue -->    Ack    --> ctl
+ *       1. ue --> Broadcast(request) --> controller
+ *       2. ue <--   Reply   <-- controller
+ *    // 3. ue -->    Ack    --> controller (@deprecated)
+ *       4. ue --> Broadcast(feedback) --> controller
  */
 
 public class Protocol extends BasePacket {
@@ -25,10 +26,11 @@ public class Protocol extends BasePacket {
     final static int DST_PORT = 0x0000;   // reply udp
     final static int DATA_DST_PORT = 4050; // data udp
 
+    /* handshake type */
     final static int REQUEST = 0x0907;
     final static int REPLY = 0x0908;
-    final static int ACK1 = 0x0909;       // client/server ack
-    final static int ACK2 = 0x090a;       // server/client ack
+//    final static int ACK1 = 0x0909;       // client/server ack
+//    final static int ACK2 = 0x090a;       // server/client ack
     final static int FEEDBACK = 0x090b;
 
     // reply msg
@@ -41,8 +43,8 @@ public class Protocol extends BasePacket {
 
     public Protocol() {
         super();
-        this.type = 0x0908;
-        this.length = 15;    // 2+2+1+2+2+6=15
+        this.type = REPLY;
+        this.length = MIN_HEADER_LEN;    // 2+2+1+2+2+6=15
     }
 
     public short getType() {

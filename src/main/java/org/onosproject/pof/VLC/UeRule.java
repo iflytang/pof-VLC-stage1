@@ -70,6 +70,10 @@ public class UeRule implements UeRuleService {
     public static final short LEDID = 5;
     public static final short MacField = 6;
 
+    /* VLC header definition. */
+    final static short VLC_TYPE = 0x1918;
+    final static short VLC_LEN = 0x0b;
+
 
     protected int gloablTableId = NetworkBoot.globalTableId();
 
@@ -735,6 +739,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
+        log.info("install_pof_write_metadata_from_packet_entry: tableId<{}>, entryId<{}>", tableId, newFlowEntryId);
     }
 
     // table_id = 1
@@ -742,15 +747,15 @@ public class UeRule implements UeRuleService {
     public void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
                                                  byte timeSlot, short ledId, short ueId, short serviceId) {
         // vlc header
-        short type = 0x1918;
-        short len = 0x000b;      // type:2 + len:2 + ts:1 + ledID:2 + ueID:2 + serviceId:2 = 11
+        short type = VLC_TYPE;
+        short len = VLC_LEN;      // type:2 + len:2 + ts:1 + ledID:2 + ueID:2 + serviceId:2 = 11
         short vlc_offset = 336;  // begin of udp payload: 42*8=336 bits
         short vlc_length = 88;   // 11 * 8 bits
-        short VLC = 0x16;
+        short VLC = 0x16;        // field_id
 
-        timeSlot = (byte) ledId; // VLC require to set
+        timeSlot = (byte) ledId; // VLC require to set, 'timeSlot' == 'ledId'
 
-        // metadata bits
+        // metadata bits, temp stored metadata location
         short metadata_offset = 32;
         short write_len = 16;
 
@@ -827,5 +832,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
+
+        log.info("install_pof_add_vlc_header_entry: tableId<{}>, entryId<{}>", tableId, newFlowEntryId);
     }
 }
