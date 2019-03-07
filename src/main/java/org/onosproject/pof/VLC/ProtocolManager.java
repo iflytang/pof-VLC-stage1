@@ -41,7 +41,6 @@ public class ProtocolManager implements ProtocolService {
     @Override
     public void broadcastMsg() {}
 
-    // TODO the parsing function do not put in the method
     @Override
     public void parseRequest() {
         log.info("parse the request.");
@@ -50,38 +49,38 @@ public class ProtocolManager implements ProtocolService {
     // build and send 'reply' message
     @Override
     public Ethernet buildReply(Ethernet packet, short ledID, short ueID, short outgoingMsgType) {
-        // parse info
-        MacAddress srcMAC = packet.getSourceMAC();
-        MacAddress dstMAC = packet.getDestinationMAC();
+        // parse 'packet-in' info
+        MacAddress srcMAC = packet.getSourceMAC();          // ue's
+        MacAddress dstMAC = packet.getDestinationMAC();     // controller's
         IPv4 ipv4Packet = (IPv4) packet.getPayload();
         String srcIP = Ip4Address.valueOf(ipv4Packet.getSourceAddress()).toString();
         String dstIP = Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString();
 
-        // build Ethernet frame
+        // build Ethernet frame, reverse the order of MAC
         Ethernet ethReply = new Ethernet();
-        ethReply.setSourceMACAddress(srcMAC);         // controller's
-        ethReply.setDestinationMACAddress(dstMAC);    // ue's
+        ethReply.setSourceMACAddress(dstMAC);         // controller's
+        ethReply.setDestinationMACAddress(srcMAC);    // ue's
         ethReply.setEtherType(Ethernet.TYPE_IPV4);    // type = 0x0800
 
         // build IP packet
         IPv4 ipv4Reply = new IPv4();                  // default construction
-        ipv4Reply.setSourceAddress(srcIP);            // controller's
-        ipv4Reply.setDestinationAddress(dstIP);       // ue's
+        ipv4Reply.setSourceAddress(dstIP);            // controller's
+        ipv4Reply.setDestinationAddress(srcIP);       // ue's
         ipv4Reply.setTtl((byte) 127);                 // ttl = 127
 
-        // build UDP datagram
+        // build UDP datagram TODO: update UDP port value
         UDP udpReply = new UDP();
-        udpReply.setSourcePort(Protocol.SRC_PORT);     // controller's
-        udpReply.setDestinationPort(Protocol.DST_PORT);// ue's
+        udpReply.setSourcePort(Protocol.DST_PORT);     // controller's
+        udpReply.setDestinationPort(Protocol.SRC_PORT);// ue's
 
         // build REPLY payload
         Protocol reply = new Protocol();
         reply.setType((outgoingMsgType));             // outgoing msg type
         reply.setLength((short) Protocol.MIN_HEADER_LEN);
-        reply.setTimestamp((byte) 0);                 // timestamp, not use now
+        reply.setTimestamp((byte) ledID);             // timestamp, not use now, TODO: 'ts' set as 'ledID'
         reply.setLedID(ledID);                        // ledID with max power
         reply.setUeID(ueID);                          // ueID assigned by controller
-        reply.setMac(dstMAC.toBytes());                // ue's
+        reply.setMac(srcMAC.toBytes());               // ue's
 
         // build
         udpReply.setPayload(reply);
@@ -92,13 +91,16 @@ public class ProtocolManager implements ProtocolService {
     }
 
     @Override
-    public void sendReply(PacketContext context, Ethernet reply) {
+    public void sendReply(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port) {
         if (reply != null) {
             TrafficTreatment.Builder builder = DefaultTrafficTreatment.builder();
             ConnectPoint sourcePoint = context.inPacket().receivedFrom();
 
-            PortNumber out_port = sourcePoint.port();           // the default out_port
-            DeviceId deviceId = sourcePoint.deviceId();         // the default device name
+            /* in VLC, the down-link is light (not wireless now).
+             * we should change the `deviceId` and `out_port`, cannot still be wireless AP.
+             * */
+//            PortNumber out_port = sourcePoint.port();           // the default out_port
+//            DeviceId deviceId = sourcePoint.deviceId();         // the default device name
 
             List<OFAction> actions = new ArrayList<>();
             actions.add(DefaultPofActions

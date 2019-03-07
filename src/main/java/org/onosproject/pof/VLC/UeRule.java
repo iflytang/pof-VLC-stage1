@@ -70,9 +70,9 @@ public class UeRule implements UeRuleService {
     public static final short LEDID = 5;
     public static final short MacField = 6;
 
-    /* VLC header definition. */
-    final static short VLC_TYPE = 0x1918;
-    final static short VLC_LEN = 0x0b;
+    /* VLC header definition. move to 'Protocol' Class. */
+//    final static short VLC_TYPE = 0x1918;
+//    final static short VLC_LEN = 0x0b;
 
 
     protected int gloablTableId = NetworkBoot.globalTableId();
@@ -345,12 +345,18 @@ public class UeRule implements UeRuleService {
         String[] tempIp = new String[4];
         StringBuilder ipHexStr = new StringBuilder();
         for(int i = 0; i < 4; i++) {
+            /* ipArray[i] should be [0, 255], ignore condition check. */
+//            if (Integer.parseInt(ipArray[i], 10) > 0xff) {
+//                ipArray[i] = "255";
+//            }
+
             tempIp[i] = Integer.toHexString(Integer.parseInt(ipArray[i], 10));
             if(tempIp[i].length() < 2) {
                 tempIp[i] = "0" + tempIp[i];
             }
             ipHexStr.append(tempIp[i]);
         }
+
         return ipHexStr.toString();
     }
 
@@ -694,7 +700,10 @@ public class UeRule implements UeRuleService {
         flowRuleService.applyFlowRules(flowRule.build());
     }
 
-    // table_id = 0, goto_table = 1
+    /* table_id = 0, goto_table = 1
+     * 1. store the udp's 'len' into pof.metadata<off, len> to update vlc's 'len' in table1;
+     * 2. goto_table1
+     */
     @Override
     public void install_pof_write_metadata_from_packet_entry(DeviceId deviceId, int tableId, int next_table_id,
                                                              String dstIP, int priority) {
@@ -725,7 +734,7 @@ public class UeRule implements UeRuleService {
         // instruction
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
         trafficTreatment.add(DefaultPofInstructions
-                .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len));
+                .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len)); // store udp.len into pof.metadata
         trafficTreatment.add(DefaultPofInstructions
                 .gotoTable((byte) next_table_id, next_table_match_field_num, next_table_packet_offset, match20List));
 
@@ -739,21 +748,23 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("install_pof_write_metadata_from_packet_entry: tableId<{}>, entryId<{}>", tableId, newFlowEntryId);
+        log.info("install_pof_write_metadata_from_packet_entry: deviceId<{}> tableId<{}>, entryId<{}>",
+                deviceId, tableId, newFlowEntryId);
     }
 
-    // table_id = 1
+    /* table_id = 1
+     * 1. comprise vlc header string, and update the vlc's len
+     * 2. delete old flow entry before updating vlc header
+     */
     @Override
     public void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
                                                  byte timeSlot, short ledId, short ueId, short serviceId) {
         // vlc header
-        short type = VLC_TYPE;
-        short len = VLC_LEN;      // type:2 + len:2 + ts:1 + ledID:2 + ueID:2 + serviceId:2 = 11
+        short type = Protocol.VLC_TYPE;
+        short len = Protocol.VLC_LEN;      // type:2 + len:2 + ts:1 + ledID:2 + ueID:2 + serviceId:2 = 11
         short vlc_offset = 336;  // begin of udp payload: 42*8=336 bits
         short vlc_length = 88;   // 11 * 8 bits
-        short VLC = 0x16;        // field_id
-
-        timeSlot = (byte) ledId; // VLC require to set, 'timeSlot' == 'ledId'
+        // short VLC = 0x16;        // field_id
 
         // metadata bits, temp stored metadata location
         short metadata_offset = 32;
@@ -792,7 +803,7 @@ public class UeRule implements UeRuleService {
         vlc_len_field.setFieldName("vlc_len");
         vlc_len_field.setFieldId(len);
         vlc_len_field.setOffset((short) (vlc_offset + 16));
-        vlc_len_field.setLength((short) 16);
+        vlc_len_field.setLength((short) 16);  // write_len
 
         // get existed flow rules in flow table. if the dstIp equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();

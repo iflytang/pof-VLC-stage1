@@ -13,6 +13,7 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
     protected int ueId;
     protected int ledId;
     protected  String deviceId;
+    protected int out_port;
     protected String hwaddr;
     protected String ip;
 
@@ -35,11 +36,12 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
     }
 
     // for UE_ASSOCIATION or UE_DISASSOCIATION
-    public NetworkEvent(NetworkEvent.Type type, String subject,int ueId, int ledId, String deviceId, String hwaddr, String ip) {
+    public NetworkEvent(NetworkEvent.Type type, String subject,int ueId, int ledId, String deviceId, int out_port, String hwaddr, String ip) {
         super(type, subject);
         this.ueId = ueId;
         this.ledId = ledId;
         this.deviceId = deviceId;
+        this.out_port = out_port;
         this.hwaddr = hwaddr;
         this.ip = ip;
         this.context = null;
@@ -60,6 +62,10 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
 
     public String getDeviceId() {
         return this.deviceId;
+    }
+
+    public int getOutPort() {
+        return this.out_port;
     }
 
     public String getHwaddr() {

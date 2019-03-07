@@ -9,6 +9,7 @@ import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.floodlightpof.protocol.action.OFAction;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceAdminService;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
@@ -77,6 +78,21 @@ public class NetworkBoot {
     static public DeviceId deviceId_ap = DeviceId.deviceId("pof:0000000000000002");
     static public byte ap_table_id_0;
 
+    /* used for inner class. */
+    protected Map<String, Integer> Mac_LedId = new HashMap<>();     // store maxLedId
+    protected Map<String, Integer> Mac_UeId = new HashMap<>();      // store ueId
+    //    protected Map<Integer, Integer> Led_Power = new HashMap<>();    // store led and its power
+    protected Map<String, Map<Integer, Integer>> Mac_led_power = new HashMap<>();
+
+    /* used for sending back 'reply' to gw. replaced by deviceArray and portArray */
+    protected PortNumber replied_port = PortNumber.portNumber(1);   // send 'reply' frame with down-link (light), cannot use wifi port
+    protected DeviceId replied_deviceId = deviceId_gw;
+
+    /* used for array[led_id]=deviceId, to update VLC header at different gw. */
+    int ledNum = 10;
+    public String[] deviceArray = initDeviceArray(new String[ledNum]);
+    public int[] portArray = initPortArray(new int[ledNum]);
+
     @Activate
     protected void activate() {
         /* register */
@@ -90,7 +106,7 @@ public class NetworkBoot {
         gw_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_gw, "FirstEntryTable", appId);
         gw_table_id_1 = ueRuleService.send_pof_flow_table(deviceId_gw, "AddVlcHeaderTable", appId);
 
-        /* send pof_flow_table to deviceId = ap, used for packet-in */
+        /* send pof_flow_table to deviceId = wireless_ap, used for packet-in */
         ap_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_ap, "FirstEntryTable", appId);
 
         try{
@@ -124,10 +140,75 @@ public class NetworkBoot {
         return globalTableId;
     }
 
-    protected Map<String, Integer> Mac_LedId = new HashMap<>();     // store maxLedId
-    protected Map<String, Integer> Mac_UeId = new HashMap<>();      // store ueId
-//    protected Map<Integer, Integer> Led_Power = new HashMap<>();    // store led and its power
-    protected Map<String, Map<Integer, Integer>> Mac_led_power = new HashMap<>();
+    /* 'led_id' as index. led connects device. TODO: to update. */
+    private String[] initDeviceArray(String[] deviceArray) {
+
+        deviceArray[0] = "pof:0000000000000001";
+        deviceArray[1] = "pof:0000000000000001";
+        deviceArray[2] = "pof:0000000000000001";
+        deviceArray[3] = "pof:0000000000000001";
+        deviceArray[4] = "pof:0000000000000001";
+
+        deviceArray[5] = "pof:0000000000000001";
+        deviceArray[6] = "pof:0000000000000001";
+        deviceArray[7] = "pof:0000000000000001";
+        deviceArray[8] = "pof:0000000000000001";
+        deviceArray[9] = "pof:0000000000000001";
+
+        return deviceArray;
+    }
+
+    /* 'led_id' as index. led connects port. TODO: to update. */
+    private int[] initPortArray(int[] portArray) {
+
+        portArray[0] = 2;
+        portArray[1] = 2;
+        portArray[2] = 2;
+        portArray[3] = 2;
+        portArray[4] = 2;
+
+        portArray[5] = 2;
+        portArray[6] = 2;
+        portArray[7] = 2;
+        portArray[8] = 2;
+        portArray[9] = 2;
+
+        return portArray;
+    }
+
+    /**
+     *  check ueID whether is the same as the Map<String, Integer> (Mac_UeId). if not, assign new one and store
+     *  in the Map; otherwise, return stored UeId.
+     * @param checkedUeId to be checked
+     * @param ueMAC ue's MAC (srcMAC), <key>
+     * @return valid ueId (stored or assigned), <value>
+     */
+    protected short checkUeID(short checkedUeId, String ueMAC) {
+
+        short ueId = checkedUeId;
+
+        /* check whether ueId is already existing in Map.
+         */
+        if (Mac_UeId.containsKey(ueMAC)) { // if existed
+            ueId = Mac_UeId.get(ueMAC).shortValue();
+            log.info("ueId existed: ueId <{}> is valid.", ueId);
+            return ueId;
+        }
+
+        ueId = (short) ueRuleService.ueIdGenerator(ueMAC); // if not existed
+        log.info("assign ueId: {}", ueId);
+
+        /* if has put, no more operation to put again.
+         */
+        if(Mac_UeId.putIfAbsent(ueMAC, (int) ueId) == null) {
+            log.info("store ueId: {} into Mac_UeId: {}", ueId, Mac_UeId);
+        }
+
+        /* this 'ueId' is really valid.
+         */
+        return ueId;
+    }
+
     protected class ReactivePacketInProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
@@ -147,12 +228,12 @@ public class NetworkBoot {
 
             /**
              * procedure: parse ETH_IPv4_UDP_PAYLOAD
-             *          1. request(0x0907): raise UeAssociation event
-             *          2. reply(0x0908): assign an ueID, and send back to ue
+             *          1. request(0x0907): check ueID first (assign ID here), then raise UeAssociation event (check whether update)
+             *          2. reply(0x0908): send back to ue for every request
              *        //  3. ack1(0x0909): send reply until receiving ack (@deprecated)
              *        //  4. ack2(0x090a): raise VLC_HEADER(0x1918) event (@deprecated)
-             *          5. data flow: payload does not contain 'type'
-             *          6. feedback(0x090b): monitor location and raise VLC_UPDATE event if maxLedId changes
+             *          5. data flow: payload contain 'type' (0x1918)
+             *          6. feedback(0x090b): monitor location (raise UeAssociation) and raise VLC_UPDATE event if maxLedId changes (VLC header update)
              */
             if (ethernetPacket.getEtherType() == Ethernet.TYPE_IPV4) {
 
@@ -179,8 +260,8 @@ public class NetworkBoot {
 
                 log.info("1 srcMac: {}, dstMac: {}", srcMAC, dstMAC);
                 log.info("1 srcIP: {}, dstIP: {}", srcIP, dstIP);
-                log.info("2 Ip4Address.valueOf: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()));
-                log.info("2 Ip4Address.valueOf.toString: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString());
+//                log.info("2 Ip4Address.valueOf: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()));
+//                log.info("2 Ip4Address.valueOf.toString: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString());
 
                 /* test whether can build and send reply msg, should comment when no testing */
 //                Ethernet ethReply1 = protocolService.buildReply(ethernetPacket,
@@ -191,129 +272,117 @@ public class NetworkBoot {
                 if (ipv4Packet.getProtocol() == IPv4.PROTOCOL_UDP) {
                     UDP udpPacket = (UDP) ipv4Packet.getPayload();
 
-                    // this is meant for the online protocol, dst_port(?)
-                    // TODO should update the value of DST_PORT and SRC_PORT in udp
+                    /** @Subject this is meant for the online protocol, dst_port(?)
+                     *  TODO: should update the value of DST_PORT and SRC_PORT in udp (UE broadcast frame)
+                     */
                     if (udpPacket.getDestinationPort() == Protocol.DST_PORT &&
                             udpPacket.getSourcePort() == Protocol.SRC_PORT) {
-                        short type = inboundPacket.unparsed().getShort(42);
+                        short type = inboundPacket.unparsed().getShort(42);  // udp payload starts from 42B
                         short len = inboundPacket.unparsed().getShort(44);
 
-                        // should send REPLY back, and raise UE_ASSOCIATION
+                        /** @Protocol should send REPLY back, and raise UE_ASSOCIATION
+                         */
                         if (type == Protocol.REQUEST) {
-                            short ueID = inboundPacket.unparsed().getShort(46);
+                            short parsedUeID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
 
-                            Mac_LedId.put(srcMAC, (int) ledID);
-//                            Led_Power.put((int) ledID, (int) signal);
-                            Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
+                            /* 1. check parsedUeID and decide whether assign ueID.
+                             * returned 'ueId' is really valid. (assign once)
+                             * */
+                            short ueID = checkUeID(parsedUeID, srcMAC);
 
-                            // if ueID differs, then send the reply
-                            short storedUeId;
-                            if (NetworkMonitor.getMacUeId().get(srcMAC) != null) { // later registration
+                            /* 2. store 'led' and 'max_signal' in request frame.
+                             */
+                            Mac_LedId.put(srcMAC, (int) ledID);            // location
+                            Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);  // location's max power
 
-                                // check stored 'ueId'
-                                storedUeId = NetworkMonitor.getMacUeId().get(srcMAC).shortValue();
-                                Mac_UeId.putIfAbsent(srcMAC, (int) storedUeId);
-
-                                if (storedUeId != ueID) {
-                                    // raise UE_ASSOCIATION event, we check ueId, maxLedId, srcIp in handleUeAssociation()
-                                    NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
-                                            ueID, ledID, deviceId, srcMAC, srcIP);
-                                    networkEventService.post(UE_ASSOCIATION);
-                                    log.info("Post Network Event: {}", UE_ASSOCIATION);
-
-                                    // send reply back to UE
-                                    Ethernet ethReply = protocolService.buildReply(ethernetPacket,
-                                            ledID, storedUeId, (short) Protocol.REPLY);
-                                    protocolService.sendReply(context, ethReply);
-
-                                    return;
-                                }
-                            } else {   // first registration
-                                // raise UE_ASSOCIATION event
-                                NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
-                                        ueID, ledID, deviceId, srcMAC, srcIP);
-                                networkEventService.post(UE_ASSOCIATION);
-                                log.info("First Post Network Event: {}", UE_ASSOCIATION);
-                            }
-                        }
-
-                        // check again
-                        if (NetworkMonitor.getMacUeId().get(srcMAC) == null) {
-                            log.info("invalid ueID!");
-                            return;
-                        }
-                        log.info("ueID: {} in Mac_ueID: {}", NetworkMonitor.getMacUeId().get(srcMAC),
-                                                            NetworkMonitor.getMacUeId());
-
-                        // @Deprecated: should send ACK2 back, and raise VLC_HEADER
-                        /*if (type == Protocol.ACK1) {
-                            short ueID = inboundPacket.unparsed().getShort(46);
-                            short ledID = inboundPacket.unparsed().getShort(48);
-                            byte signal = inboundPacket.unparsed().get(49);
-
-                            Mac_LedId.put(srcMAC, (int) ledID);
-                            Led_Power.put((int) ledID, (int) signal);
-
-                            // raise VLC_HEADER event, set flow rules to add VLC_header in handle_VLCHeader()
-                            NetworkEvent VLC_HEADER = new NetworkEvent(NetworkEvent.Type.VLC_HEADER, "VLC_HEADER",
-                                    ueID, ledID, deviceId, srcMAC, srcIP);
-                            networkEventService.post(VLC_HEADER);
-                            log.info("Post Network Event: {}", VLC_HEADER);
+                            /* 3. raise UE_ASSOCIATION event for every request and
+                             * send 'reply' to gw (down-link). however, 'packet-in' from wireless AP (up-link).
+                             */
+                            NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "FIRST_ASSOCIATION",
+                                    ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                            networkEventService.post(UE_ASSOCIATION);
+                            log.info("Post Network Event 1: {}", UE_ASSOCIATION);
 
                             Ethernet ethReply = protocolService.buildReply(ethernetPacket,
-                                    ledID, ueID, (short) Protocol.ACK2);
-                            protocolService.sendReply(context, ethReply);
-                        }*/
+                                                                           ledID, ueID, (short) Protocol.REPLY);
+                            protocolService.sendReply(context, ethReply, DeviceId.deviceId(deviceArray[ledID]),
+                                                      PortNumber.portNumber(portArray[ledID]));
 
-                        // should monitor whether storedLedID changes, and raise VLC_UPDATE
+                            /* 4. complete 'request' stage
+                             */
+                            return;
+                        }
+
+
+                        /** @Protocol should monitor whether storedLedID changes, and raise VLC_HEADER_UPDATE or UE_ASSOCIATION
+                         */
                         if (type == Protocol.FEEDBACK) {
-                            short ueID = inboundPacket.unparsed().getShort(46);
+                            short parsedUeID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
 
-                            // double check (ack), if ueId differs, send Reply again
-                            if (Mac_UeId.get(srcMAC) != ueID) {
-                                short storedUeID = Mac_UeId.get(srcMAC).shortValue();
+                            /* 1. check parsedUeID and decide whether assign ueID.
+                             * returned 'ueId' is really valid. (assign once). if
+                             * 'ueId' != 'parsedUeId', send 'reply' frame and return.
+                             * */
+                            short ueID = checkUeID(parsedUeID, srcMAC);
+                            if (ueID != parsedUeID) {   // in case that 'feedback' type wrong
+                                Mac_LedId.put(srcMAC, (int) ledID);            // location
+                                Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);  // location's max power
+
+                                NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "FEEDBACK_ASSOCIATION",
+                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                                networkEventService.post(UE_ASSOCIATION);
+                                log.info("Post Network Event 2: {}", UE_ASSOCIATION);
+
                                 Ethernet ethReply = protocolService.buildReply(ethernetPacket,
-                                        ledID, storedUeID, (short) Protocol.REPLY);
-                                protocolService.sendReply(context, ethReply);
+                                        ledID, ueID, (short) Protocol.REPLY);
+                                protocolService.sendReply(context, ethReply, DeviceId.deviceId(deviceArray[ledID]),
+                                                          PortNumber.portNumber(portArray[ledID]));
                                 return;
                             }
 
-                            int storedLedId, storedPower;
-                            if (Mac_LedId.get(srcMAC) != null) {
-                                storedLedId = Mac_LedId.get(srcMAC);
-                                // if 'storedLedId' changes, clear the power
-                                if (ledID != storedLedId) {  // ledId should be max power
-                                    Mac_led_power.get(srcMAC).put(storedLedId, 0);
-                                }
+                            /* 2. check whether 'led_id' changes.
+                             * if so, raise UE_ASSOCIATION and VLC_HEADER_UPDATE, clear the old_led_id's power.
+                             * if not, return.
+                             */
+                            int storedLedId = Mac_LedId.get(srcMAC);
+                            int storedPower;
+                            if (ledID != storedLedId) {  // if not equal
+                                /* led_id changes, should clear the old record: old_led's power */
+//                                Mac_led_power.get(srcMAC).put(storedLedId, 0);
 
-                                storedPower = Mac_led_power.get(srcMAC).get(storedLedId);
-
-                                // if ledID with max power changes, update VLC_HEADER in handle_VLCUpdate
-                                if ((ledID != storedLedId) && (signal > storedPower)) {
-                                    NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
-                                            "VLC_HEADER_UPDATE", ueID, ledID, deviceId, srcMAC, srcIP);
-                                    networkEventService.post(VLC_HEADER_UPDATE);
-                                    log.info("Post Network Event: {}", VLC_HEADER_UPDATE);
-
-                                    Mac_LedId.put(srcMAC, (int) ledID);
-                                    Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
-                                } else {
-                                    Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
-                                }
-                            } else {  // first time
+                                /* put the new record. */
                                 Mac_LedId.put(srcMAC, (int) ledID);
                                 Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);
+
+                                /* raise UE_ASSOCIATION. update association at wireless AP. */
+                                NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UPDATE_ASSOCIATION",
+                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                                networkEventService.post(UE_ASSOCIATION);
+                                log.info("Post Network Event 3: {}", UE_ASSOCIATION);
+
+                                /* raise UPDATE_VLC_HEADER. update VLC header at gw and output. */
+                                NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
+                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP);
+                                networkEventService.post(VLC_HEADER_UPDATE);
+                                log.info("Post Network Event 4: {}", VLC_HEADER_UPDATE);
+
                             }
+
+                            /* 3. complete 'feedback' stage
+                             */
+                            return;
                         }
                     }
 
-                    // this is meant for the data flow, udp dst port = 4050
+                    /** @Subjcet this is meant for the data flow, udp dst port = 4050
+                     *
+                     */
                     if (udpPacket.getDestinationPort() == Protocol.DATA_DST_PORT) {
-                        // TODO if we should calculate path, then implement it here
+                        // TODO: what should we consider for the data_flow?
                     }
 
                 }

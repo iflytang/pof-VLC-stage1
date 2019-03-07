@@ -1,6 +1,8 @@
 package org.onosproject.pof.VLC;
 
 import org.onlab.packet.Ethernet;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
 import org.onosproject.net.packet.PacketContext;
 
 /**
@@ -27,7 +29,7 @@ public interface ProtocolService {
      */
     Ethernet buildReply(Ethernet packet, short ledID, short ueID, short outgoingMsgType);
 
-    void sendReply(PacketContext context, Ethernet reply);
+    void sendReply(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port);
 
     /**
      * UE/CONTROLLER ack message sent from ue

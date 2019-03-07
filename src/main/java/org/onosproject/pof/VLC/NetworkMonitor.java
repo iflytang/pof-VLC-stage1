@@ -1,6 +1,7 @@
 package org.onosproject.pof.VLC;
 
 import org.apache.felix.scr.annotations.*;
+import org.onlab.packet.Ethernet;
 import org.onosproject.event.EventDeliveryService;
 import org.onosproject.event.ListenerRegistry;
 import org.onosproject.net.DeviceId;
@@ -59,14 +60,17 @@ public class NetworkMonitor {
         @Override
         public void event(NetworkEvent event) {
             String deviceId = event.getDeviceId();
+            int out_port = event.getOutPort();       // used for VLC_HEADER_UPDATE only
             String hwaddr = event.getHwaddr();
             String ip = event.getIp();
             int ledId = event.getLedId();
             int ueId = event.getUeId();
-            log.info("Receive Event: {} ==> ueId: {}, deviceId: {}, hwaddr: {}, ip: {}, ledId:{}.",
-                    event.type(), ueId, deviceId, hwaddr, ip, ledId);
+            log.info("Receive Event: {} ==> ueId: {}, deviceId: {}, out_port: {}, hwaddr: {}, ip: {}, ledId:{}.",
+                    event.type(), ueId, deviceId, out_port, hwaddr, ip, ledId);
 
-            // @deprecated: TODO set all time slot for one flow temporary
+            int DIP_FIELD_ID = 13;    // field_id
+
+            // @deprecated: TODO: set all time slot for one flow temporary (bitmap scheme @killed by VLC lab for simplicity)
            /* List<Integer> tempTimeSlot = new ArrayList<>();
             tempTimeSlot.add(1);
             tempTimeSlot.add(2);
@@ -75,8 +79,8 @@ public class NetworkMonitor {
             int timeSlot = ueRuleService.toDecTimeSlot(tempTimeSlot);
             log.info("[== TimeSlot ==] time slot: {}.", timeSlot);*/
 
-           /* we set timeSlot is same as ledId. */
-           byte timeSlot = (byte) ledId;
+           /* we set timeSlot is same as ledId. TODO: further scheme? (stale scheme) */
+           byte timeSlot = (byte) ledId;  // compulsory assignment
 
             if(event.type().equals(NetworkEvent.Type.UE_ASSOCIATION)) {
 //                log.info("<=======================================");
@@ -88,23 +92,28 @@ public class NetworkMonitor {
             }
 
             if(event.type().equals(NetworkEvent.Type.VLC_HEADER)) {
-                // TODO outport? timeSlot?
+                // TODO: timeSlot? serviceId?
                 log.info("Receive {} Event ==> handleVLCHeader()", event.type());
-                handleVLCHeader(deviceId, ip, 2, 1, ledId, ueId, timeSlot, 0);
+                handleVLCHeader(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0);
 
             }
 
+            /* deviceId: deviceArray[ledId]
+             * out_port: portArray[ledId]
+             * timeSlot: make it equal 'ledId'
+             */
             if(event.type().equals(NetworkEvent.Type.VLC_UPDATE)) {
-                // TODO outport? timeSlot?
+                // TODO: timeSlot? serviceId?
                 log.info("Receive {} Event ==> handleVLCUpdate()", event.type());
-                handleVLCUpdate(deviceId, ip, 2, 1, ledId, ueId, timeSlot, 0);
+                handleVLCUpdate(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0);
             }
 
         }
 
-        // handle UeAssociation
+        /** handle UeAssociation
+         */
         public void handleUeAssociation(String hwaddr, String ip, short ueId, short ledId) {
-            // if ueId != 0xff has not stored yet, then assume it as fake ueId (ueId show assigned by controller)
+           /* // if ueId != 0xff has not stored yet, then assume it as fake ueId (ueId show assigned by controller)
             if(ueId != 0xff) {
                 // check Mac_UeId
                 boolean flag = false;
@@ -133,10 +142,11 @@ public class NetworkMonitor {
             // if has put, no more operation to put
             if(Mac_UeId.putIfAbsent(hwaddr, (int) ueId) == null) {
                 log.info("[== handleUeAssociation ==] put ueId: {} into Mac_UeId: {}", ueId, Mac_UeId);
-            }
+            }*/
 
-            // 1. bind: if Map ues don't have key (ue's MAC), then put it into ues
-            // 2. update: if ues have contained key (ue's MAC), then check whether ledId changes
+            /* 1. bind: if Map ues don't have key (ue's MAC), then put it into ues' record
+             * 2. update: if ues have contained key (ue's MAC), then check whether ledId changes
+             */
             if(!ues.containsKey(hwaddr)) {
                 ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));   // store in ues
                 ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));  // set association
@@ -145,14 +155,14 @@ public class NetworkMonitor {
             } else {
                 short storedLedId = ues.get(hwaddr).getLedId();
                 String storedIp = ues.get(hwaddr).getIp();
-                // update if ledId changes
+                /* update if ledId changes */
                 if(ledId != storedLedId) {
                     log.info("[== handleUeAssociation ==] UE_Association_Update_LedId.");
                     ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));
                     ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));
                     log.info("[== handleUeAssociation ==] UE [id: {}, hwaddr: {}, ip: {}] leaves from LED: {} to LED: {}.", ueId, hwaddr, ip, storedLedId, ledId);
                 }
-                // update if ip changes
+                /* update if ip changes */
                 if(!ip.equals(storedIp)) {
                     log.info("[== handleUeAssociation ==] UE_Association_Update_ip.");
                     ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));
@@ -160,6 +170,7 @@ public class NetworkMonitor {
                     log.info("[== handleUeAssociation ==] UE [id: {}, hwaddr: {}, ip: {}] connects to LED: {} with new ip: {}.", ueId, hwaddr, storedIp, ledId, ip);
                 }
 
+                /* comment here when run. */
                 if((ledId == storedLedId) && (ip.equals(storedIp))) {
                     log.info("[== handleUeAssociation ==] UE_Association_No_Update");
                 }
@@ -167,24 +178,26 @@ public class NetworkMonitor {
         }
 
 
-        // handle VLC_header: feedback's srcIp is our flow's dstIp
+        /** handle VLC_header: feedback's srcIp is our flow's dstIp (as match field)
+         */
         public void handleVLCHeader(String deviceId, String dstIp, int outPort, int DIP,
                                     int ledId, int ueId, int timeSlot, int serviceId) {
             // timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCHeader==] installGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
-            ueRuleService.install_pof_add_vlc_header_entry(NetworkBoot.deviceId_gw, NetworkBoot.gw_table_id_1, dstIp, outPort,
+            ueRuleService.install_pof_add_vlc_header_entry(DeviceId.deviceId(deviceId), NetworkBoot.gw_table_id_1, dstIp, outPort,
                     12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
         }
 
-        // handle VLC_update: feedback's srcIp is our flow's dstIp
+        /** handle VLC_update: feedback's srcIp is our flow's dstIp (as match field)
+         */
         public void handleVLCUpdate(String deviceId, String dstIp, int outPort, int DIP,
                                     int ledId, int ueId, int timeSlot, int serviceId) {
-            // timeSlot value format: 0x01_01_01_01
+            // @deprecated: timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCUpdater==] updateGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
-            // we will delete old entry before sending new flow entry
-            ueRuleService.install_pof_add_vlc_header_entry(NetworkBoot.deviceId_gw, NetworkBoot.gw_table_id_1, dstIp, outPort,
+            /* we will delete old entry before sending new flow entry in this function. */
+            ueRuleService.install_pof_add_vlc_header_entry(DeviceId.deviceId(deviceId), NetworkBoot.gw_table_id_1, dstIp, outPort,
                     12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
         }
     }
@@ -198,14 +211,14 @@ public class NetworkMonitor {
         @Override
         public void run() {
             NetworkEvent UeAssociation = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
-                    0x12,1, "pof:0000000000000001", "11:22:33:44:55:66", "192.168.109.172");
+                    0x12,1, "pof:0000000000000001", 1,"11:22:33:44:55:66", "192.168.109.172");
             networkEventService.post(UeAssociation);
             log.info("[== Test Event Post ==] Post event: {}", UeAssociation);
 
             try {
                 Thread.currentThread().sleep(1 * 1000);
                 NetworkEvent UeAssociation2 = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION2",
-                        0xff, 2, "pof:0000000000000001", "01:02:03:04:05:06", "192.168.4.128");
+                        0xff, 2, "pof:0000000000000001", 1, "01:02:03:04:05:06", "192.168.4.128");
                 networkEventService.post(UeAssociation2);
                 log.info("[== Test Event Post ==] Post event: {}", UeAssociation2);
             } catch (Exception e) {

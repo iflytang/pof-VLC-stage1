@@ -22,8 +22,8 @@ public class Protocol extends BasePacket {
     // reply length
     final static int MIN_HEADER_LEN = 15; // type:2+len:2+timestamp:1+led:2+ue:2+mac:6 = 15B
 
-    final static int SRC_PORT = 0x0000;   // reply udp
-    final static int DST_PORT = 0x0000;   // reply udp
+    final static int SRC_PORT = 0x0000;   // reply udp (UE broadcast frame)
+    final static int DST_PORT = 0x0000;   // reply udp (UE broadcast frame)
     final static int DATA_DST_PORT = 4050; // data udp
 
     /* handshake type */
@@ -32,6 +32,10 @@ public class Protocol extends BasePacket {
 //    final static int ACK1 = 0x0909;       // client/server ack
 //    final static int ACK2 = 0x090a;       // server/client ack
     final static int FEEDBACK = 0x090b;
+
+    /* data_flow type (VLC Header). */
+    final static int VLC_TYPE = 0x1918;
+    final static int VLC_LEN = 0x0b;
 
     // reply msg
     protected short type;

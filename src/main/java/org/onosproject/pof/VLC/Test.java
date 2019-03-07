@@ -89,7 +89,7 @@ public class Test {
         }
     }
 
-    public int toHexTimeSlot(List<Integer> timeSlotList) {
+   /* public int toHexTimeSlot(List<Integer> timeSlotList) {
         int timeSlot =  0x0000;
         int flag =  0x0080;
         String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
@@ -118,7 +118,7 @@ public class Test {
         hextimeSlot = Integer.toHexString(timeSlot );
 
         return Integer.valueOf(hextimeSlot, 16);
-    }
+    } */
 
     List<Integer> ueIdList = new ArrayList<>();
     public int ueIdGenerator() {
