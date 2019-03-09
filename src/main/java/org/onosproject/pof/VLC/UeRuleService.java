@@ -1,6 +1,7 @@
 package org.onosproject.pof.VLC;
 
 import org.onosproject.core.ApplicationId;
+import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.packet.PacketContext;
 
@@ -89,6 +90,8 @@ public interface UeRuleService {
      */
     byte send_pof_flow_table(DeviceId deviceId, String table_name, ApplicationId appId);
 
+    byte send_pof_flow_table_to_wireless_ap(DeviceId deviceId, String table_name, ApplicationId appId);
+
     void remove_pof_flow_table(DeviceId deviceId, byte tableId, ApplicationId appId);
 
     void install_pof_output_entry(String deviceId, int tableId, String dstIp, int outport, int priority);
@@ -99,4 +102,7 @@ public interface UeRuleService {
     void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
                                           byte timeSlot, short ledId, short ueId, short serviceId);
 
+    /* match 'ue_led_id' to avoid too much packet_in. action=drop. */
+    void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID,
+                                           short oldLedID, int priority);
 }

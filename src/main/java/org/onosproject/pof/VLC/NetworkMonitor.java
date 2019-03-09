@@ -41,7 +41,7 @@ public class NetworkMonitor {
     public void activate() {
         networkEventService.addListener(listener);
         log.info("Network Monitor Module Started.");
-        //timeScheduler();      // uncomment this to test post NetworkEvent periodically
+        timeScheduler();      // uncomment this to test post NetworkEvent periodically
     }
 
     @Deactivate
@@ -88,7 +88,7 @@ public class NetworkMonitor {
 //                        event.type(), event.getUeId(), event.getDeviceId(), event.getLedId(), event.getHwaddr(), event.getIp());
 //                log.info("=======================================>");
                 log.info("Receive {} Event ==> handleUeAssociation()", event.type());
-                handleUeAssociation(hwaddr, ip, (short) ueId, (short) ledId);
+                handleUeAssociation(deviceId, hwaddr, ip, (short) ueId, (short) ledId);
             }
 
             if(event.type().equals(NetworkEvent.Type.VLC_HEADER)) {
@@ -112,7 +112,7 @@ public class NetworkMonitor {
 
         /** handle UeAssociation
          */
-        public void handleUeAssociation(String hwaddr, String ip, short ueId, short ledId) {
+        public void handleUeAssociation(String deviceId, String hwaddr, String ip, short ueId, short ledId) {
            /* // if ueId != 0xff has not stored yet, then assume it as fake ueId (ueId show assigned by controller)
             if(ueId != 0xff) {
                 // check Mac_UeId
@@ -147,19 +147,25 @@ public class NetworkMonitor {
             /* 1. bind: if Map ues don't have key (ue's MAC), then put it into ues' record
              * 2. update: if ues have contained key (ue's MAC), then check whether ledId changes
              */
+            boolean updated = false;
+            short oldledId;
             if(!ues.containsKey(hwaddr)) {
                 ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));   // store in ues
                 ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));  // set association
-                log.info("[== handleUeAssociation ==] UE [id: {}, hwaddr: {}, ip: {} connects to LED: {}.", ueId, hwaddr, ip, ledId);
-                log.info("[== handleUeAssociation ==] UE_Association_Bind_First.");
+                updated = true;
+                oldledId = 0xff;
+                log.info("[== handleUeAssociation (1st) ==] UE [id: {}, hwaddr: {}, ip: {} connects to LED: {}.", ueId, hwaddr, ip, ledId);
             } else {
                 short storedLedId = ues.get(hwaddr).getLedId();
                 String storedIp = ues.get(hwaddr).getIp();
+                oldledId = storedLedId;
+
                 /* update if ledId changes */
                 if(ledId != storedLedId) {
                     log.info("[== handleUeAssociation ==] UE_Association_Update_LedId.");
                     ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));
                     ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));
+                    updated = true;
                     log.info("[== handleUeAssociation ==] UE [id: {}, hwaddr: {}, ip: {}] leaves from LED: {} to LED: {}.", ueId, hwaddr, ip, storedLedId, ledId);
                 }
                 /* update if ip changes */
@@ -167,6 +173,7 @@ public class NetworkMonitor {
                     log.info("[== handleUeAssociation ==] UE_Association_Update_ip.");
                     ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));
                     ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));
+                    updated = true;
                     log.info("[== handleUeAssociation ==] UE [id: {}, hwaddr: {}, ip: {}] connects to LED: {} with new ip: {}.", ueId, hwaddr, storedIp, ledId, ip);
                 }
 
@@ -174,6 +181,11 @@ public class NetworkMonitor {
                 if((ledId == storedLedId) && (ip.equals(storedIp))) {
                     log.info("[== handleUeAssociation ==] UE_Association_No_Update");
                 }
+            }
+
+            if (updated) {
+                ueRuleService.install_pof_avoid_packet_in_entry(DeviceId.deviceId(deviceId), NetworkBoot.ap_table_id_0,
+                        ueId, ledId, oldledId, 12);
             }
         }
 
@@ -210,7 +222,7 @@ public class NetworkMonitor {
     private class EventTimerTask extends java.util.TimerTask {
         @Override
         public void run() {
-            NetworkEvent UeAssociation = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION",
+            NetworkEvent UeAssociation = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION1",
                     0x12,1, "pof:0000000000000001", 1,"11:22:33:44:55:66", "192.168.109.172");
             networkEventService.post(UeAssociation);
             log.info("[== Test Event Post ==] Post event: {}", UeAssociation);

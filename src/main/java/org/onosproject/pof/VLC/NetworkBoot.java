@@ -107,7 +107,7 @@ public class NetworkBoot {
         gw_table_id_1 = ueRuleService.send_pof_flow_table(deviceId_gw, "AddVlcHeaderTable", appId);
 
         /* send pof_flow_table to deviceId = wireless_ap, used for packet-in */
-        ap_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_ap, "FirstEntryTable", appId);
+        ap_table_id_0 = ueRuleService.send_pof_flow_table_to_wireless_ap(deviceId_ap, "FirstEntryTable", appId);
 
         try{
             Thread.sleep(1000);

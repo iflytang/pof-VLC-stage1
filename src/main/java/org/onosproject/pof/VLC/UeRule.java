@@ -627,7 +627,6 @@ public class UeRule implements UeRuleService {
      * @desp new design to add VLC header
      * @header type + len + ts + ledID + ueID + service_flag
      */
-
     @Override
     public byte send_pof_flow_table(DeviceId deviceId, String table_name, ApplicationId appId) {
         byte tableId = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
@@ -660,6 +659,50 @@ public class UeRule implements UeRuleService {
         flowTableService.applyFlowTables(flowTable.build());
 
         log.info("table<{}> applied to device<{}> successfully.", tableId, deviceId.toString());
+
+        return tableId;
+    }
+
+    /**
+     * @desp match 'MAX_UE_LED' in ue's feedback frame to avoid too much packet-in
+     */
+    @Override
+    public byte send_pof_flow_table_to_wireless_ap(DeviceId deviceId, String table_name, ApplicationId appId) {
+        byte tableId = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
+
+        short LED_FIELD_ID = 20;
+        short udp_payload_off = 336; // 42 * 8;
+        short ue_led_off = 368;   // 336 + 4 * 8
+        short ue_led_len = 32;    // (2+2) * 8
+
+        OFMatch20 ue_led_field = new OFMatch20();
+        ue_led_field.setFieldId(LED_FIELD_ID);
+        ue_led_field.setFieldName("ue_led_field");
+        ue_led_field.setOffset(ue_led_off);
+        ue_led_field.setLength(ue_led_len);
+
+        ArrayList<OFMatch20> match20List = new ArrayList<>();
+        match20List.add(ue_led_field);
+
+        OFFlowTable ofFlowTable = new OFFlowTable();
+        ofFlowTable.setTableId(tableId);
+        ofFlowTable.setTableName(table_name);
+        ofFlowTable.setMatchFieldList(match20List);
+        ofFlowTable.setMatchFieldNum((byte) 1);
+        ofFlowTable.setTableSize(32);
+        ofFlowTable.setTableType(OFTableType.OF_MM_TABLE);
+        ofFlowTable.setCommand(null);
+        ofFlowTable.setKeyLength(ue_led_len);
+
+        FlowTable.Builder flowTable = DefaultFlowTable.builder()
+                .withFlowTable(ofFlowTable)
+                .forTable(tableId)
+                .forDevice(deviceId)
+                .fromApp(appId);
+
+        flowTableService.applyFlowTables(flowTable.build());
+
+        log.info("table<{}> applied to device<{}> (ap) successfully.", tableId, deviceId.toString());
 
         return tableId;
     }
@@ -831,6 +874,64 @@ public class UeRule implements UeRuleService {
         actions.add(action_set_vlc_len);
         actions.add(action_inc_vlc_len);
         actions.add(action_output);
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
+
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(deviceId)
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withPriority(priority)
+                .withCookie(newFlowEntryId)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
+
+        log.info("install_pof_add_vlc_header_entry: tableId<{}>, entryId<{}>", tableId, newFlowEntryId);
+    }
+
+    /* match 'max_led_id' to avoid too much packet_in. action=drop.
+    * can remove old flow entry. */
+    @Override
+    public void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID, short oldLedId, int priority) {
+        short LED_FIELD_ID = 20;
+        short udp_payload_off = 336; // 42 * 8;
+        short ue_led_off = 368;   // 336 + 4 * 8
+        short ue_led_len = 32;    // (2+2) * 8
+
+        String oldMatchField = short2HexStr(ueId) + short2HexStr(oldLedId);
+        String matchField = short2HexStr(ueId) + short2HexStr(ledID);
+
+        // old_match
+        TrafficSelector.Builder oldtrafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> oldmatchList = new ArrayList<>();
+        oldmatchList.add(Criteria.matchOffsetLength(LED_FIELD_ID, ue_led_off, ue_led_len, oldMatchField, "ffffffff"));
+        oldtrafficSelector.add(Criteria.matchOffsetLength(oldmatchList));
+
+        // new_match
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength(LED_FIELD_ID, ue_led_off, ue_led_len, matchField, "ffffffff"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+
+        // action: drop unnecessary packet-in to controller
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<>();
+        OFAction action_drop = DefaultPofActions.drop(1).action();
+
+        // remove oldMatchFiled flow entry, oldLedId means initial value
+        // get existed flow rules in flow table. if equals, then delete it
+        Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
+        existedFlowRules = flowTableStore.getFlowEntries(deviceId, FlowTableId.valueOf(tableId));
+        if(existedFlowRules != null) {
+            for(Integer flowEntryId : existedFlowRules.keySet()) {
+                if(existedFlowRules.get(flowEntryId).selector().equals(oldtrafficSelector.build())) {
+                    flowTableService.removeFlowEntryByEntryId(deviceId, tableId, flowEntryId);
+                }
+            }
+        }
+
+        actions.add(action_drop);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
 
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
