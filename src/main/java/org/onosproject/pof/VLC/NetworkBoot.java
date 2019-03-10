@@ -119,6 +119,19 @@ public class NetworkBoot {
         ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, "0a000002", 12);
         ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, "0a000002", 2, 1,
                 (byte) 0x01, (short) 0x0002, (short) 0x0003, (short) 0x0004);
+
+        /* send to wireless ap to test. for test only. */
+        /*ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
+                (short) 0xff, (short) 0x12, (short) 0x11, 12);
+
+        try{
+            Thread.sleep(10000);
+        } catch (Exception e) {
+            log.info("sleep wrong in Network before sending flow rules.");
+        }
+
+        ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
+                (short) 0xff, (short) 0x14, (short) 0x12, 12);*/
     }
 
     @Deactivate

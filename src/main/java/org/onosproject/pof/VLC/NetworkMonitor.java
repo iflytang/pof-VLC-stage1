@@ -41,7 +41,7 @@ public class NetworkMonitor {
     public void activate() {
         networkEventService.addListener(listener);
         log.info("Network Monitor Module Started.");
-        timeScheduler();      // uncomment this to test post NetworkEvent periodically
+//        timeScheduler();      // uncomment this to test post NetworkEvent periodically
     }
 
     @Deactivate

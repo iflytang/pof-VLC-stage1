@@ -710,7 +710,7 @@ public class UeRule implements UeRuleService {
     @Override
     public void remove_pof_flow_table(DeviceId deviceId, byte tableId, ApplicationId appId) {
         // remove flow rules before removing flow table
-        flowRuleService.removeFlowRulesById(appId);
+//        flowRuleService.removeFlowRulesById(appId);
         flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId));
     }
 
