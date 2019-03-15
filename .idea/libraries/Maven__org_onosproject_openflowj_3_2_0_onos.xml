@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.onosproject:openflowj:3.2.0.onos">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/openflowj/3.2.0.onos/openflowj-3.2.0.onos.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/openflowj/3.2.0.onos/openflowj-3.2.0.onos-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/openflowj/3.2.0.onos/openflowj-3.2.0.onos-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
