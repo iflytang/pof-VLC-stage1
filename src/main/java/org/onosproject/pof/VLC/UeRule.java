@@ -63,6 +63,9 @@ public class UeRule implements UeRuleService {
     public static final short SIP = 12;
     public static final short DIP = 13;
     public static final short VLC = 14;   // all vlc fields
+    public static final short UDP_LEN_FIELD = 15;
+    public static final short UDP_CKM_FIELD = 16;
+    public static final short IP_LEN_FIELD = 17;
 
     public static final short SERVICEID = 2;
     public static final short TIMESLOT = 3;
@@ -774,8 +777,42 @@ public class UeRule implements UeRuleService {
         byte next_table_match_field_num = 1;
         short next_table_packet_offset = 0;
 
+        int vlc_header_len = 11;   // type(2B) + len(2B) + ts(1B) + led_id(2B) + ue_id(2B) + srv_flag(2B)
+        short ip_len_off = 128;
+        short ip_len_len = 16;
+
+        // ip.checksum field, only includes ip.header
+        byte ckm_type = 0;    // immediate number
+        short cal_pos = 128;  // cal.header offset
+        short cal_len = 160;  // ip.header length
+        short cs_off = 192;   // ip.ckm offset
+        short cs_len = 16;    // ip.ckm length
+
+        // ip.len field, update the ip.len plus vlc.header (11B)
+        OFMatch20 ip_len_field = new OFMatch20();
+        ip_len_field.setFieldId(IP_LEN_FIELD);
+        ip_len_field.setFieldName("ip_len_field");
+        ip_len_field.setOffset(ip_len_off);
+        ip_len_field.setLength(ip_len_len);
+
+        // udp.len field, update the udp.len plus vlc.header (11B)
+//        OFMatch20 udp_len_field = new OFMatch20();
+//        udp_len_field.setFieldId(UDP_LEN_FIELD);
+//        udp_len_field.setFieldName("udp_len_field");
+//        udp_len_field.setOffset(udp_len_offset);
+//        udp_len_field.setLength(write_len);
+//        OFAction action_inc_udp_len = DefaultPofActions.modifyField(udp_len_field, vlc_header_len).action();
+        OFAction action_inc_ip_len = DefaultPofActions.modifyField(ip_len_field, vlc_header_len).action();
+        OFAction action_cal_ip_checksum = DefaultPofActions.calcCheckSum(ckm_type, ckm_type, cs_off, cs_len, cal_pos, cal_len).action();
+
+        ArrayList<OFAction>  actions = new ArrayList<>();
+//        actions.add(action_inc_udp_len);
+        actions.add(action_inc_ip_len);
+        actions.add(action_cal_ip_checksum);
+
         // instruction
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));  // update ip.len, ip.ckm, udp.len, update udp.ckm in install_pof_add_vlc_header_entry
         trafficTreatment.add(DefaultPofInstructions
                 .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len)); // store udp.len into pof.metadata
         trafficTreatment.add(DefaultPofInstructions
@@ -834,19 +871,28 @@ public class UeRule implements UeRuleService {
         OFAction action_add_vlc_field = DefaultPofActions.addField(VLC, vlc_offset, vlc_length, vlc_header.toString())
                 .action();
 
-        // used for set_field_from_metadata
-        OFMatch20 metadata_udp_len = new OFMatch20();
-        metadata_udp_len.setFieldName("metadata_udp_len");
-        metadata_udp_len.setFieldId(OFMatch20.METADATA_FIELD_ID);
-        metadata_udp_len.setOffset((short) (vlc_offset + 16));     // the packet_field_offset
-        metadata_udp_len.setLength(write_len);                     // the packet_field_len
+        // used for set_field_from_metadata, to update vlc.len with the value of udp.len
+        OFMatch20 metadata_vlc_len = new OFMatch20();
+        metadata_vlc_len.setFieldName("metadata_vlc_len");
+        metadata_vlc_len.setFieldId(OFMatch20.METADATA_FIELD_ID);
+        metadata_vlc_len.setOffset((short) (vlc_offset + 16));     // the packet_field_offset
+        metadata_vlc_len.setLength(write_len);                     // the packet_field_len
 
         // used for modify_field
         OFMatch20 vlc_len_field = new OFMatch20();
         vlc_len_field.setFieldName("vlc_len");
         vlc_len_field.setFieldId(len);
         vlc_len_field.setOffset((short) (vlc_offset + 16));
-        vlc_len_field.setLength((short) 16);  // write_len
+        vlc_len_field.setLength((short) 16);  //
+
+        // udp.len field, update the udp.len plus vlc.header (11B)
+        int vlc_header_len = 11;   // type(2B) + len(2B) + ts(1B) + led_id(2B) + ue_id(2B) + srv_flag(2B)
+        short udp_len_offset = 304;    // the offset of `len` field in udp
+        OFMatch20 udp_len_field = new OFMatch20();
+        udp_len_field.setFieldId(UDP_LEN_FIELD);
+        udp_len_field.setFieldName("udp_len_field");
+        udp_len_field.setOffset(udp_len_offset);
+        udp_len_field.setLength(write_len);
 
         // get existed flow rules in flow table. if the dstIp equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
@@ -863,9 +909,24 @@ public class UeRule implements UeRuleService {
 
         // vlc_len = vlc.header + udp.payload, so metadata minus udp.header
         short vlc_len = (short) (len - 8);
-        OFAction action_set_vlc_len = DefaultPofActions.setFieldFromMetadata(metadata_udp_len, metadata_offset)
+
+        // udp.checksum field, may set as 0x0000
+        byte ckm_type = 0;    // immediate number
+        short cal_pos = 320;  // cal.ckm start
+        short cal_len = 104;  // cal.ckm end, include {udp.ckm(2B) + vlc.header(11B)}, cal_result is wrong.
+        short cs_off = 320;   // udp.ckm offset
+        short cs_len = 16;    // udp.ckm length
+        short udp_ckm_off = 320;
+        short udp_ckm_len = 16;
+
+        OFAction action_set_vlc_len = DefaultPofActions.setFieldFromMetadata(metadata_vlc_len, metadata_offset)
                                       .action();
+//        OFAction action_cal_udp_checksum = DefaultPofActions.calcCheckSum(ckm_type, ckm_type, cs_off, cs_len, cal_pos, cal_len)
+//                                      .action();
         OFAction action_inc_vlc_len = DefaultPofActions.modifyField(vlc_len_field, vlc_len)
+                                      .action();
+        OFAction action_inc_udp_len = DefaultPofActions.modifyField(udp_len_field, vlc_header_len).action();
+        OFAction action_reset_udp_ckm = DefaultPofActions.setField(UDP_CKM_FIELD, udp_ckm_off, udp_ckm_len, "0000", "ffff")
                                       .action();
         OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport)
                                  .action();
@@ -873,6 +934,9 @@ public class UeRule implements UeRuleService {
         actions.add(action_add_vlc_field);
         actions.add(action_set_vlc_len);
         actions.add(action_inc_vlc_len);
+        actions.add(action_inc_udp_len);
+//        actions.add(action_cal_udp_checksum);
+        actions.add(action_reset_udp_ckm);  // if udp.ckm == 0x0000, then receiver will not check udp.ckm
         actions.add(action_output);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
 
