@@ -96,6 +96,8 @@ public interface UeRuleService {
 
     void install_pof_output_entry(String deviceId, int tableId, String dstIp, int outport, int priority);
 
+    void install_pof_drop_entry(DeviceId deviceId, int tableId, String dstIp, int outport, int priority);
+
     void install_pof_write_metadata_from_packet_entry(DeviceId deviceId, int tableId, int next_table_id,
                                                       String dstIP, int priority);
 

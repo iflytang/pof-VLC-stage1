@@ -22,8 +22,8 @@ public class Protocol extends BasePacket {
     // reply length
     final static int MIN_HEADER_LEN = 15; // type:2+len:2+timestamp:1+led:2+ue:2+mac:6 = 15B
 
-    final static int SRC_PORT = 0x0000;   // reply udp (UE broadcast frame)
-    final static int DST_PORT = 0x0000;   // reply udp (UE broadcast frame)
+    final static int SRC_PORT = 9019;   // reply udp (UE broadcast frame)
+    final static int DST_PORT = 9020;   // reply udp (UE broadcast frame)
     final static int DATA_DST_PORT = 4050; // data udp
 
     /* handshake type */

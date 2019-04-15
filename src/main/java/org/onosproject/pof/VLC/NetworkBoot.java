@@ -116,9 +116,14 @@ public class NetworkBoot {
         }
 
         /* send write_metadata and add_vlc rule in deviceId = gw */
-        ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, "0a000002", 12);
-        ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, "0a000002", 2, 1,
-                (byte) 0x01, (short) 0x0002, (short) 0x0003, (short) 0x0004);
+        String dstIP = ueRuleService.ip2HexStr("192.168.1.100");  // 192.168.1.100
+        ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, dstIP, 12);
+        ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, dstIP, 2, 1,
+                (byte) 0x01, (short) 0x0001, (short) 0x0003, (short) 0x0004);
+
+        /* drop the broadcast frame. */
+        ueRuleService.install_pof_drop_entry(deviceId_gw, gw_table_id_0, ueRuleService.ip2HexStr("192.168.1.2"), 0xff, 10);
+        ueRuleService.install_pof_drop_entry(deviceId_gw, gw_table_id_0, ueRuleService.ip2HexStr("224.0.0.252"), 0xff, 10);
 
         /* send to wireless ap to test. for test only. */
         /*ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
@@ -132,6 +137,7 @@ public class NetworkBoot {
 
         ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
                 (short) 0xff, (short) 0x14, (short) 0x12, 12);*/
+        log.info("Activated! appId: {}", appId);
     }
 
     @Deactivate
@@ -222,6 +228,8 @@ public class NetworkBoot {
         return ueId;
     }
 
+    private boolean TEST = true;
+    private Map<String, Integer> ueId_should_reply = new HashMap<>();
     protected class ReactivePacketInProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
@@ -237,7 +245,11 @@ public class NetworkBoot {
             // get deviceId and port, the port maybe not the WIFI port but WAN port
             String deviceId = inboundPacket.receivedFrom().deviceId().toString();
             int port = (int) inboundPacket.receivedFrom().port().toLong();   // through WAN to report to controller
-            log.info("packet in from deviceId: {}, port: {}", deviceId, port);
+//            log.info("packet in from deviceId: {}, port: {}", deviceId, port);
+
+//            if (TEST) {
+//                return;
+//            }
 
             /**
              * procedure: parse ETH_IPv4_UDP_PAYLOAD
@@ -250,7 +262,7 @@ public class NetworkBoot {
              */
             if (ethernetPacket.getEtherType() == Ethernet.TYPE_IPV4) {
 
-                log.info("==========[ packetIn packet (0x0800)? {}]=========", Integer.toHexString(ethernetPacket.getEtherType()));
+//                log.info("==========[ packetIn packet (0x0800)? {}]=========", Integer.toHexString(ethernetPacket.getEtherType()));
                 String srcMAC = ethernetPacket.getSourceMAC().toString();   // like "01:02:03:04:05:06"
                 String dstMAC = ethernetPacket.getDestinationMAC().toString();
 
@@ -261,6 +273,7 @@ public class NetworkBoot {
                 // ignore these packets
                 if(ipv4Packet.getDestinationAddress() == 0xFFFFFFFF ||
                         ipv4Packet.getDestinationAddress() == 0xE0000016 ||
+                        ipv4Packet.getDestinationAddress() == 0xE00000FC ||
                         ipv4Packet.getDestinationAddress() == 0xE00000FB ||
                         ipv4Packet.getDestinationAddress() == 0x08080808 ||
                         srcMAC.equals("4E:4F:4F:4F:4F:4F") || dstMAC.equals("4E:4F:4F:4F:4F:4F") ||
@@ -273,6 +286,8 @@ public class NetworkBoot {
 
                 log.info("1 srcMac: {}, dstMac: {}", srcMAC, dstMAC);
                 log.info("1 srcIP: {}, dstIP: {}", srcIP, dstIP);
+                String agent_src_ip = ueRuleService.ip2HexStr("192.168.1.100");
+                srcIP =  agent_src_ip;  // agent
 //                log.info("2 Ip4Address.valueOf: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()));
 //                log.info("2 Ip4Address.valueOf.toString: {}", Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString());
 
@@ -288,14 +303,15 @@ public class NetworkBoot {
                     /** @Subject this is meant for the online protocol, dst_port(?)
                      *  TODO: should update the value of DST_PORT and SRC_PORT in udp (UE broadcast frame)
                      */
-                    if (udpPacket.getDestinationPort() == Protocol.DST_PORT &&
-                            udpPacket.getSourcePort() == Protocol.SRC_PORT) {
+                    if (udpPacket.getDestinationPort() == Protocol.DST_PORT /*&&
+                            udpPacket.getSourcePort() == Protocol.SRC_PORT*/) {
                         short type = inboundPacket.unparsed().getShort(42);  // udp payload starts from 42B
                         short len = inboundPacket.unparsed().getShort(44);
 
                         /** @Protocol should send REPLY back, and raise UE_ASSOCIATION
                          */
                         if (type == Protocol.REQUEST) {
+                            log.info("in REQUEST.");
                             short parsedUeID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
@@ -308,7 +324,9 @@ public class NetworkBoot {
                             /* 2. store 'led' and 'max_signal' in request frame.
                              */
                             Mac_LedId.put(srcMAC, (int) ledID);            // location
+                            Mac_led_power.put(srcMAC, new HashMap<>());
                             Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);  // location's max power
+                            ueId_should_reply.put(srcMAC, 0);
 
                             /* 3. raise UE_ASSOCIATION event for every request and
                              * send 'reply' to gw (down-link). however, 'packet-in' from wireless AP (up-link).
@@ -332,6 +350,7 @@ public class NetworkBoot {
                         /** @Protocol should monitor whether storedLedID changes, and raise VLC_HEADER_UPDATE or UE_ASSOCIATION
                          */
                         if (type == Protocol.FEEDBACK) {
+                            log.info("in FEEDBACK.");
                             short parsedUeID = inboundPacket.unparsed().getShort(46);
                             short ledID = inboundPacket.unparsed().getShort(48);
                             byte signal = inboundPacket.unparsed().get(49);
@@ -343,7 +362,10 @@ public class NetworkBoot {
                             short ueID = checkUeID(parsedUeID, srcMAC);
                             if (ueID != parsedUeID) {   // in case that 'feedback' type wrong
                                 Mac_LedId.put(srcMAC, (int) ledID);            // location
+                                Mac_led_power.put(srcMAC, new HashMap<>());
                                 Mac_led_power.get(srcMAC).put((int) ledID, (int) signal);  // location's max power
+
+                                ueId_should_reply.put(srcMAC, 0);
 
                                 NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "FEEDBACK_ASSOCIATION",
                                         ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
@@ -355,6 +377,15 @@ public class NetworkBoot {
                                 protocolService.sendReply(context, ethReply, DeviceId.deviceId(deviceArray[ledID]),
                                                           PortNumber.portNumber(portArray[ledID]));
                                 return;
+                            }
+
+                            if (ueId_should_reply.get(srcMAC) == 0) {
+                                /* raise UPDATE_VLC_HEADER. update VLC header at gw and output. */
+                                NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
+                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP);
+                                networkEventService.post(VLC_HEADER_UPDATE);
+                                log.info("Post Network Event 4: {}", VLC_HEADER_UPDATE);
+                                ueId_should_reply.put(srcMAC, 1);
                             }
 
                             /* 2. check whether 'led_id' changes.
@@ -383,6 +414,11 @@ public class NetworkBoot {
                                 networkEventService.post(VLC_HEADER_UPDATE);
                                 log.info("Post Network Event 4: {}", VLC_HEADER_UPDATE);
 
+                            } else {
+                                /* if the ledID not changes, then avoid_pkt_in with match {ueID, ledID}. */
+                                ueRuleService.install_pof_avoid_packet_in_entry(DeviceId.deviceId(deviceId), NetworkBoot.ap_table_id_0,
+                                        ueID, ledID, ledID, 12);
+                                log.info("Avoid packet-in.");
                             }
 
                             /* 3. complete 'feedback' stage

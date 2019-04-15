@@ -746,6 +746,35 @@ public class UeRule implements UeRuleService {
         flowRuleService.applyFlowRules(flowRule.build());
     }
 
+    @Override
+    public void install_pof_drop_entry(DeviceId deviceId, int tableId, String dstIp, int outport, int priority) {
+        // match dstIP
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength(DIP, (short) 240, (short) 32, dstIp, "ffffffff"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+
+        // action: only forward packets
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+        List<OFAction> actions = new ArrayList<>();
+        OFAction action_drop = DefaultPofActions.drop(1)
+                .action();
+        actions.add(action_drop);
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
+
+        // apply
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(deviceId)
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withPriority(priority)
+                .withCookie(newFlowEntryId)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
+    }
+
     /* table_id = 0, goto_table = 1
      * 1. store the udp's 'len' into pof.metadata<off, len> to update vlc's 'len' in table1;
      * 2. goto_table1
@@ -812,7 +841,7 @@ public class UeRule implements UeRuleService {
 
         // instruction
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
-        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));  // update ip.len, ip.ckm, udp.len, update udp.ckm in install_pof_add_vlc_header_entry
+//        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));  // update ip.len, ip.ckm, udp.len, update udp.ckm in install_pof_add_vlc_header_entry
         trafficTreatment.add(DefaultPofInstructions
                 .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len)); // store udp.len into pof.metadata
         trafficTreatment.add(DefaultPofInstructions
@@ -934,7 +963,7 @@ public class UeRule implements UeRuleService {
         actions.add(action_add_vlc_field);
         actions.add(action_set_vlc_len);
         actions.add(action_inc_vlc_len);
-        actions.add(action_inc_udp_len);
+//        actions.add(action_inc_udp_len);   // should not change ip.len, ip.ckm, udp.len; set udp.ckm (0x0000)
 //        actions.add(action_cal_udp_checksum);
         actions.add(action_reset_udp_ckm);  // if udp.ckm == 0x0000, then receiver will not check udp.ckm
         actions.add(action_output);

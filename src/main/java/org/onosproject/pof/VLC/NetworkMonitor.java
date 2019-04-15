@@ -91,7 +91,7 @@ public class NetworkMonitor {
                 handleUeAssociation(deviceId, hwaddr, ip, (short) ueId, (short) ledId);
             }
 
-            if(event.type().equals(NetworkEvent.Type.VLC_HEADER)) {
+            if(event.type().equals(NetworkEvent.Type.VLC_HEADER)) { // @deprecated, use VLC_UPDATE
                 // TODO: timeSlot? serviceId?
                 log.info("Receive {} Event ==> handleVLCHeader()", event.type());
                 handleVLCHeader(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0);
@@ -183,10 +183,10 @@ public class NetworkMonitor {
                 }
             }
 
-            if (updated) {
+            /*if (updated) {
                 ueRuleService.install_pof_avoid_packet_in_entry(DeviceId.deviceId(deviceId), NetworkBoot.ap_table_id_0,
                         ueId, ledId, oldledId, 12);
-            }
+            }*/
         }
 
 

@@ -56,22 +56,27 @@ public class ProtocolManager implements ProtocolService {
         String srcIP = Ip4Address.valueOf(ipv4Packet.getSourceAddress()).toString();
         String dstIP = Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString();
 
+        MacAddress agent_mac = MacAddress.valueOf("4C:CC:6A:37:7B:98");
+        String agent_dst_ip = "192.168.1.100";
+        int agent_dst_port = 9012;
+        int agent_src_port = 9011;
+
         // build Ethernet frame, reverse the order of MAC
         Ethernet ethReply = new Ethernet();
         ethReply.setSourceMACAddress(dstMAC);         // controller's
-        ethReply.setDestinationMACAddress(srcMAC);    // ue's
+        ethReply.setDestinationMACAddress(agent_mac);    // ue's
         ethReply.setEtherType(Ethernet.TYPE_IPV4);    // type = 0x0800
 
         // build IP packet
         IPv4 ipv4Reply = new IPv4();                  // default construction
         ipv4Reply.setSourceAddress(dstIP);            // controller's
-        ipv4Reply.setDestinationAddress(srcIP);       // ue's
+        ipv4Reply.setDestinationAddress(agent_dst_ip);       // ue's
         ipv4Reply.setTtl((byte) 127);                 // ttl = 127
 
         // build UDP datagram TODO: update UDP port value
         UDP udpReply = new UDP();
-        udpReply.setSourcePort(Protocol.DST_PORT);     // controller's
-        udpReply.setDestinationPort(Protocol.SRC_PORT);// ue's
+        udpReply.setSourcePort(agent_src_port);     // controller's
+        udpReply.setDestinationPort(agent_dst_port);// ue's
 
         // build REPLY payload
         Protocol reply = new Protocol();
