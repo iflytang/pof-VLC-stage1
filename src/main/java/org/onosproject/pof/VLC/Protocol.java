@@ -35,7 +35,30 @@ public class Protocol extends BasePacket {
 
     /* data_flow type (VLC Header). */
     final static int VLC_TYPE = 0x1918;
-    final static int VLC_LEN = 0x0b;
+    final static int VLC_LEN = 0x10;       // ts:2+type:2+len:2+led:2+ue:2+service:4
+
+    /* VLC header {off,len} in bit. */
+    final static short VLC_H_OFF = 336;          // udp start location, 42B * 8 = 336b
+    final static short VLC_H_LEN = VLC_LEN * 8;
+    final static short VLC_F_LEN_OFF = VLC_H_OFF + 32;   // ts:2 + type:2
+    final static short VLC_F_LEN_LEN = 16;               // len:2B * 8 = 16b
+
+    /* DIP filed {off,len} in bit. */
+    final static short DIP_F_OFF = 240;
+    final static short DIP_F_LEN = 32;
+    final static short IP_F_LEN_OFF = 128;
+    final static short IP_F_LEN_LEN = 16;
+
+    /* UDP filed {off, len} in bit */
+    final static short UDP_F_LEN_OFF = 304;
+    final static short UDP_F_LEN_LEN = 16;
+    final static short UDP_F_CKM_OFF = 320;
+    final static short UDP_F_CKM_LEN = 16;
+
+    /* UE_LED to be matched at wireless_ap to drop packet. */
+    final static short AP_UELED_F_OFF = VLC_H_OFF + 32;   // type:2 + len:2 + ue:2 + led:2 + power:2
+    final static short AP_UELED_F_LEN = 32;
+
 
     // reply msg
     protected short type;

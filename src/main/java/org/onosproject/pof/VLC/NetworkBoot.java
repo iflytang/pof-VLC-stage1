@@ -119,9 +119,11 @@ public class NetworkBoot {
         String dstIP = ueRuleService.ip2HexStr("192.168.1.100");  // 192.168.1.100
         ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, dstIP, 12);
         ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, dstIP, 2, 1,
-                (byte) 0x01, (short) 0x0001, (short) 0x0003, (short) 0x0004);
+                (short) 0x01, (short) 0x0001, (short) 0x0003, 0x0004);
 
-        /* drop the broadcast frame. */
+        /* drop the broadcast frame.
+        *  TODO: maybe we have to add more ACL flow rules here, which according to the experiment environment.
+        * */
         ueRuleService.install_pof_drop_entry(deviceId_gw, gw_table_id_0, ueRuleService.ip2HexStr("192.168.1.2"), 0xff, 10);
         ueRuleService.install_pof_drop_entry(deviceId_gw, gw_table_id_0, ueRuleService.ip2HexStr("224.0.0.252"), 0xff, 10);
 

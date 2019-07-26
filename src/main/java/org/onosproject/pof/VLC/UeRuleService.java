@@ -102,7 +102,7 @@ public interface UeRuleService {
                                                       String dstIP, int priority);
 
     void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
-                                          byte timeSlot, short ledId, short ueId, short serviceId);
+                                          short timeSlot, short ledId, short ueId, int serviceId);
 
     /* match 'ue_led_id' to avoid too much packet_in. action=drop. */
     void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID,
