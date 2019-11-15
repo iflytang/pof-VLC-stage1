@@ -81,6 +81,9 @@ public class NetworkBoot {
     /* used for inner class. */
     protected Map<String, Integer> Mac_LedId = new HashMap<>();     // store maxLedId
     protected Map<String, Integer> Mac_UeId = new HashMap<>();      // store ueId
+    protected Map<String, Integer> Dmac_LedId = new HashMap<>();      // store Apmac_LedId
+
+
     //    protected Map<Integer, Integer> Led_Power = new HashMap<>();    // store led and its power
     protected Map<String, Map<Integer, Integer>> Mac_led_power = new HashMap<>();
 
@@ -92,6 +95,7 @@ public class NetworkBoot {
     int ledNum = 10;
     public String[] deviceArray = initDeviceArray(new String[ledNum]);
     public int[] portArray = initPortArray(new int[ledNum]);
+    public String[] dmacArray=initDmacArray(new String[ledNum]);
 
     @Activate
     protected void activate() {
@@ -119,7 +123,7 @@ public class NetworkBoot {
         String dstIP = ueRuleService.ip2HexStr("192.168.1.100");  // 192.168.1.100
         ueRuleService.install_pof_write_metadata_from_packet_entry(deviceId_gw, gw_table_id_0, gw_table_id_1, dstIP, 12);
         ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, dstIP, 2, 1,
-                (short) 0x01, (short) 0x0001, (short) 0x0003, 0x0004);
+                (short) 0x01, (short) 0x0001, (short) 0x0003, 0x0004, "00:0a:35:00:00:01");
 
         /* drop the broadcast frame.
         *  TODO: maybe we have to add more ACL flow rules here, which according to the experiment environment.
@@ -128,6 +132,9 @@ public class NetworkBoot {
         ueRuleService.install_pof_drop_entry(deviceId_gw, gw_table_id_0, ueRuleService.ip2HexStr("224.0.0.252"), 0xff, 10);
 
         /* send to wireless ap to test. for test only. */
+
+//        ueRuleService.select_control_data(deviceId_ap, NetworkBoot.ap_table_id_0, 1);
+
         /*ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
                 (short) 0xff, (short) 0x12, (short) 0x11, 12);
 
@@ -159,6 +166,23 @@ public class NetworkBoot {
 
     public static int globalTableId() {
         return globalTableId;
+    }
+
+    /* 'led_id' as index. led connects dmac. TODO: to update. */
+    private String[] initDmacArray(String[] dmacArray) {
+        dmacArray[1] = "00:0a:35:00:00:01";
+        dmacArray[2] = "00:0a:35:00:00:01";
+        dmacArray[3] = "00:0a:35:00:00:01";
+        dmacArray[4] = "00:0a:35:00:00:04";
+        dmacArray[5] = "00:0a:35:00:00:04";
+        dmacArray[6] = "00:0a:35:00:00:04";
+        dmacArray[7] = "00:0a:35:00:00:05";
+        dmacArray[8] = "00:0a:35:00:00:05";
+        dmacArray[9] = "00:0a:35:00:00:05";
+        dmacArray[10] = "00:0a:35:00:00:08";
+        dmacArray[11] = "00:0a:35:00:00:08";
+        dmacArray[12] = "00:0a:35:00:00:08";
+        return dmacArray;
     }
 
     /* 'led_id' as index. led connects device. TODO: to update. */
@@ -252,7 +276,6 @@ public class NetworkBoot {
 //            if (TEST) {
 //                return;
 //            }
-
             /**
              * procedure: parse ETH_IPv4_UDP_PAYLOAD
              *          1. request(0x0907): check ueID first (assign ID here), then raise UeAssociation event (check whether update)
@@ -307,16 +330,18 @@ public class NetworkBoot {
                      */
                     if (udpPacket.getDestinationPort() == Protocol.DST_PORT /*&&
                             udpPacket.getSourcePort() == Protocol.SRC_PORT*/) {
-                        short type = inboundPacket.unparsed().getShort(42);  // udp payload starts from 42B
-                        short len = inboundPacket.unparsed().getShort(44);
+
+                        short type = inboundPacket.unparsed().getShort(Protocol.CONTROL_TYPE);  // eth payload starts from 12B
+                        short len = inboundPacket.unparsed().getShort(Protocol.CONTROl_LEN);
+
 
                         /** @Protocol should send REPLY back, and raise UE_ASSOCIATION
                          */
                         if (type == Protocol.REQUEST) {
                             log.info("in REQUEST.");
-                            short parsedUeID = inboundPacket.unparsed().getShort(46);
-                            short ledID = inboundPacket.unparsed().getShort(48);
-                            byte signal = inboundPacket.unparsed().get(49);
+                            short parsedUeID = inboundPacket.unparsed().getShort(Protocol.CONTROL_UEID);
+                                short ledID = inboundPacket.unparsed().getShort(Protocol.CONTROL_LEDID);
+                            byte signal = inboundPacket.unparsed().get(Protocol.CONTROL_SIGNAL);
 
                             /* 1. check parsedUeID and decide whether assign ueID.
                              * returned 'ueId' is really valid. (assign once)
@@ -334,7 +359,7 @@ public class NetworkBoot {
                              * send 'reply' to gw (down-link). however, 'packet-in' from wireless AP (up-link).
                              */
                             NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "FIRST_ASSOCIATION",
-                                    ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                                    ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP, context, dmacArray[ledID]);
                             networkEventService.post(UE_ASSOCIATION);
                             log.info("Post Network Event 1: {}", UE_ASSOCIATION);
 
@@ -370,7 +395,7 @@ public class NetworkBoot {
                                 ueId_should_reply.put(srcMAC, 0);
 
                                 NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "FEEDBACK_ASSOCIATION",
-                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP, context, dmacArray[ledID]);
                                 networkEventService.post(UE_ASSOCIATION);
                                 log.info("Post Network Event 2: {}", UE_ASSOCIATION);
 
@@ -384,7 +409,7 @@ public class NetworkBoot {
                             if (ueId_should_reply.get(srcMAC) == 0) {
                                 /* raise UPDATE_VLC_HEADER. update VLC header at gw and output. */
                                 NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
-                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP);
+                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP, context, dmacArray[ledID]);
                                 networkEventService.post(VLC_HEADER_UPDATE);
                                 log.info("Post Network Event 4: {}", VLC_HEADER_UPDATE);
                                 ueId_should_reply.put(srcMAC, 1);
@@ -406,13 +431,13 @@ public class NetworkBoot {
 
                                 /* raise UE_ASSOCIATION. update association at wireless AP. */
                                 NetworkEvent UE_ASSOCIATION = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UPDATE_ASSOCIATION",
-                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP);
+                                        ueID, ledID, deviceArray[ledID], 0xff, srcMAC, srcIP, context, dmacArray[ledID]);
                                 networkEventService.post(UE_ASSOCIATION);
                                 log.info("Post Network Event 3: {}", UE_ASSOCIATION);
 
                                 /* raise UPDATE_VLC_HEADER. update VLC header at gw and output. */
                                 NetworkEvent VLC_HEADER_UPDATE = new NetworkEvent(NetworkEvent.Type.VLC_UPDATE,
-                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP);
+                                        "VLC_HEADER_UPDATE", ueID, ledID, deviceArray[ledID], portArray[ledID], srcMAC, srcIP, context, dmacArray[ledID]);
                                 networkEventService.post(VLC_HEADER_UPDATE);
                                 log.info("Post Network Event 4: {}", VLC_HEADER_UPDATE);
 
