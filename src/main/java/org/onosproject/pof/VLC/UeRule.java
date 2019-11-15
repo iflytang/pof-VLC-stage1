@@ -66,6 +66,7 @@ public class UeRule implements UeRuleService {
     public static final short UDP_LEN_FIELD = 15;
     public static final short UDP_CKM_FIELD = 16;
     public static final short IP_LEN_FIELD = 17;
+    public static final short ETH_DMAC_FIELD=18;
 
     public static final short SERVICEID = 2;
     public static final short TIMESLOT = 3;
@@ -186,11 +187,11 @@ public class UeRule implements UeRuleService {
         // get existed flow rules in flow table. if the dstIp equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
         existedFlowRules = flowTableStore.getFlowEntries(DeviceId.deviceId(deviceId), FlowTableId.valueOf(gloablTableId));
-        if(existedFlowRules != null) {
-            for(Integer flowEntryId : existedFlowRules.keySet()) {
+        if (existedFlowRules != null) {
+            for (Integer flowEntryId : existedFlowRules.keySet()) {
                 log.info("existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()) ==> {}",
                         existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()));
-                if(existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build())) {
+                if (existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build())) {
                     flowTableService.removeFlowEntryByEntryId(DeviceId.deviceId(deviceId), gloablTableId, flowEntryId);
                 }
             }
@@ -212,7 +213,7 @@ public class UeRule implements UeRuleService {
     }
 
     @Override
-    public void installAPFlowRule(String deviceId,int tableId, String dstip, int outport, int DIP) {
+    public void installAPFlowRule(String deviceId, int tableId, String dstip, int outport, int DIP) {
         // match dstIp {240b, 32b}
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
@@ -223,9 +224,9 @@ public class UeRule implements UeRuleService {
         // action: (1)remove VLC Header; (2)forward to server; (3)no action to deal with the broadcast packets, so PacketIn
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
         List<OFAction> actions = new ArrayList<>();
-       // OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
+        // OFAction action_remove_VLC = DefaultPofActions.deleteField(112, 48).action(); // VLCHeader{0, 48} is 6B in the front of IP packets
         OFAction action_outport = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport).action();
-       // actions.add(action_remove_VLC);
+        // actions.add(action_remove_VLC);
         actions.add(action_outport);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
         log.info("[==installAPFlowRule==] 2. action: {}.", actions);
@@ -241,7 +242,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installAPFlowRule==] 3. applyRuleService {} + tableId {}.",deviceId, tableId);
+        log.info("[==installAPFlowRule==] 3. applyRuleService {} + tableId {}.", deviceId, tableId);
     }
 
     @Override
@@ -339,7 +340,7 @@ public class UeRule implements UeRuleService {
                 .withCookie(newFlowEntryId)
                 .makePermanent();
         flowRuleService.applyFlowRules(flowRule.build());
-        log.info("[==installForwardFlowRule==] 3. applyRuleService {} + tableId {}.",deviceId, tableId);
+        log.info("[==installForwardFlowRule==] 3. applyRuleService {} + tableId {}.", deviceId, tableId);
     }
 
     @Override
@@ -347,14 +348,14 @@ public class UeRule implements UeRuleService {
         String[] ipArray = ip.split("\\.");
         String[] tempIp = new String[4];
         StringBuilder ipHexStr = new StringBuilder();
-        for(int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++) {
             /* ipArray[i] should be [0, 255], ignore condition check. */
 //            if (Integer.parseInt(ipArray[i], 10) > 0xff) {
 //                ipArray[i] = "255";
 //            }
 
             tempIp[i] = Integer.toHexString(Integer.parseInt(ipArray[i], 10));
-            if(tempIp[i].length() < 2) {
+            if (tempIp[i].length() < 2) {
                 tempIp[i] = "0" + tempIp[i];
             }
             ipHexStr.append(tempIp[i]);
@@ -384,7 +385,7 @@ public class UeRule implements UeRuleService {
 
     @Override
     public String byte2HexStr(byte byteNum) {
-        String hex = Integer.toHexString(   byteNum & 0xff);
+        String hex = Integer.toHexString(byteNum & 0xff);
         if (hex.length() == 1) {
             hex = '0' + hex;
         }
@@ -437,12 +438,12 @@ public class UeRule implements UeRuleService {
         ArrayList<OFMatch20> match_DIP_without_VLC = new ArrayList<>();
         match_DIP_without_VLC.add(DIP_without_VLC);
 
-        for(DeviceId deviceId : deviceIdList) {
+        for (DeviceId deviceId : deviceIdList) {
             //int smallTableId = flowTableStore.parseToSmallTableId(deviceId, gloablTableId);
             byte tableId = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
             byte tableId1 = (byte) flowTableStore.getNewGlobalFlowTableId(deviceId, OFTableType.OF_MM_TABLE);
 
-            if(deviceId.equals(DeviceId.deviceId("pof:0000000000000003"))) {
+            if (deviceId.equals(DeviceId.deviceId("pof:0000000000000003"))) {
                 // =========== tableId-0 =================
                 // construct OFMatch FlowTable with VLC
                 OFFlowTable ofFlowTable_with_VLC = new OFFlowTable();
@@ -512,13 +513,13 @@ public class UeRule implements UeRuleService {
 
     @Override
     public void handleConnectionDown() {
-        List<DeviceId>  deviceIdList = getDeviceList();
+        List<DeviceId> deviceIdList = getDeviceList();
         long tableId = 0;
         long tableId1 = 1;
 
-        for(DeviceId deviceId : deviceIdList) {
+        for (DeviceId deviceId : deviceIdList) {
             flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId));
-            if(deviceId.toString().equals("pof:0000000000000003")) {
+            if (deviceId.toString().equals("pof:0000000000000003")) {
                 flowTableService.removeFlowTablesByTableId(deviceId, FlowTableId.valueOf(tableId1));
             }
         }
@@ -528,8 +529,8 @@ public class UeRule implements UeRuleService {
     public void handlePortStatus() {
         List<DeviceId> deviceIdList = getDeviceList();
 
-        for(DeviceId deviceId : deviceIdList) {
-            if(deviceId.toString().equals("pof:0000000000000003")) {
+        for (DeviceId deviceId : deviceIdList) {
+            if (deviceId.toString().equals("pof:0000000000000003")) {
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(1), true);  // for sw3
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(2), true);
                 deviceAdminService.changePortState(deviceId, PortNumber.portNumber(3), true);
@@ -545,86 +546,87 @@ public class UeRule implements UeRuleService {
 
     @Override
     public int toDecTimeSlot(List<Integer> timeSlotList) {
-       int timeSlot =  0x0000;
-       int flag =  0x0080;
-       String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
+        int timeSlot = 0x0000;
+        int flag = 0x0080;
+        String hextimeSlot = "00";   // 8b00 00 00 00 => hex: 0x00
 
-       for(Integer slot : timeSlotList) {
-           switch (slot) {
-               case 1:
-                   timeSlot += (flag >> 1); // 01 00 00 00
-                   flag = 0x0080;   // reset
-                   continue;
-               case 2:
-                   timeSlot += (flag >> 3);
-                   flag = 0x0080;
-                   continue;
-               case 3:
-                   timeSlot += (flag >> 5);
-                   flag = 0x80;
-                   continue;
-               case 4:
-                   timeSlot += (flag >> 7);
-                   flag = 0x80;
-                   continue;
-           }
-       }
+        for (Integer slot : timeSlotList) {
+            switch (slot) {
+                case 1:
+                    timeSlot += (flag >> 1); // 01 00 00 00
+                    flag = 0x0080;   // reset
+                    continue;
+                case 2:
+                    timeSlot += (flag >> 3);
+                    flag = 0x0080;
+                    continue;
+                case 3:
+                    timeSlot += (flag >> 5);
+                    flag = 0x80;
+                    continue;
+                case 4:
+                    timeSlot += (flag >> 7);
+                    flag = 0x80;
+                    continue;
+            }
+        }
 
-       hextimeSlot = Integer.toHexString(timeSlot);
+        hextimeSlot = Integer.toHexString(timeSlot);
 
-       return Integer.valueOf(hextimeSlot, 16);
-   }
+        return Integer.valueOf(hextimeSlot, 16);
+    }
 
     // generate UeId and store it in ueIdList
     protected List<Integer> ueIdList = new ArrayList<>();  // store ueId in ArrayList
     protected Map<String, Integer> Mac_UeId = new HashMap<>(); // store mac_ueId in Map
+
     @Override
     public int ueIdGenerator(String mac) {
-       // assign UeId
-       Random random = new Random();
-       int ueId = random.nextInt(128) + 1;  // ueId from 1 to 128
-       int randRange = 128;   // at most 128 ueId
-       int i;   // index of for loop
+        // assign UeId
+        Random random = new Random();
+        int ueId = random.nextInt(128) + 1;  // ueId from 1 to 128
+        int randRange = 128;   // at most 128 ueId
+        int i;   // index of for loop
 
-       // if ueId have assigned, forbid to reassign
-       if(Mac_UeId.get(mac) != null) {
-           log.info("Ue [{}] have assigned UeId [{}], fail to reassign!", mac, Mac_UeId.get(mac));
-           return Mac_UeId.get(mac);
-       }
+        // if ueId have assigned, forbid to reassign
+        if (Mac_UeId.get(mac) != null) {
+            log.info("Ue [{}] have assigned UeId [{}], fail to reassign!", mac, Mac_UeId.get(mac));
+            return Mac_UeId.get(mac);
+        }
 
-       // if ueIdList full, fail to assign ueId
-       if(ueIdList.size() == randRange) {
-           log.info("no more ueId! assign ueId fails, return with ueId<255>.");
-           return 255;
-       }
+        // if ueIdList full, fail to assign ueId
+        if (ueIdList.size() == randRange) {
+            log.info("no more ueId! assign ueId fails, return with ueId<255>.");
+            return 255;
+        }
 
-       // check in ueIdList in a traversal way
-       for(i = 0; i < ueIdList.size(); i++) {
-           // if assigned, reassign ueId and recheck
-           Integer assignedId = ueIdList.get(i);
-           if(ueId == assignedId) {
-               int tempUeId = random.nextInt(128) + 1;
-               log.info("Warning! ueId conflicts! There have been ueId ==> [{}], reassign ueId ==> [{}]", ueId, tempUeId);
-               ueId = tempUeId;
-               i = 0;
-               i--;     // i-- then i++, finally i = 0
-           }
-       }
+        // check in ueIdList in a traversal way
+        for (i = 0; i < ueIdList.size(); i++) {
+            // if assigned, reassign ueId and recheck
+            Integer assignedId = ueIdList.get(i);
+            if (ueId == assignedId) {
+                int tempUeId = random.nextInt(128) + 1;
+                log.info("Warning! ueId conflicts! There have been ueId ==> [{}], reassign ueId ==> [{}]", ueId, tempUeId);
+                ueId = tempUeId;
+                i = 0;
+                i--;     // i-- then i++, finally i = 0
+            }
+        }
 
-       // no conflicts for ueId, then store in ueIdSet
-       ueIdList.add(ueId);
-       Mac_UeId.put(mac, ueId);
-       Collections.sort(ueIdList);     // sort ueId in ascending order
-       log.info("Store ue [{}] with ueId [{}] in UeList{} and Mac_ueId: {}", mac, ueId, ueIdList, Mac_UeId);
-       return ueId;
-   }
+        // no conflicts for ueId, then store in ueIdSet
+        ueIdList.add(ueId);
+        Mac_UeId.put(mac, ueId);
+        Collections.sort(ueIdList);     // sort ueId in ascending order
+        log.info("Store ue [{}] with ueId [{}] in UeList{} and Mac_ueId: {}", mac, ueId, ueIdList, Mac_UeId);
+        return ueId;
+    }
 
     // remove ueId by Object
     @Override
     public List<Integer> removeUeId(Integer ueId) {
         ueIdList.remove(ueId);
         return ueIdList;
-   }
+    }
 
     /**
      * @desp new design to add VLC header
@@ -729,7 +731,7 @@ public class UeRule implements UeRuleService {
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
         List<OFAction> actions = new ArrayList<>();
         OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport)
-                                                .action();
+                .action();
         actions.add(action_output);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
 
@@ -834,18 +836,26 @@ public class UeRule implements UeRuleService {
 //        udp_len_field.setLength(write_len);
 //        OFAction action_inc_udp_len = DefaultPofActions.modifyField(udp_len_field, vlc_header_len).action();
         OFAction action_inc_ip_len = DefaultPofActions.modifyField(ip_len_field, vlc_header_len).action();
+
         OFAction action_cal_ip_checksum = DefaultPofActions.calcCheckSum(ckm_type, ckm_type, cs_off, cs_len, cal_pos, cal_len).action();
 
-        ArrayList<OFAction>  actions = new ArrayList<>();
+        ArrayList<OFAction> actions = new ArrayList<>();
 //        actions.add(action_inc_udp_len);
-        actions.add(action_inc_ip_len);
+//        actions.add(action_inc_ip_len);
         actions.add(action_cal_ip_checksum);
 
         // instruction
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
 //        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));  // update ip.len, ip.ckm, udp.len, update udp.ckm in install_pof_add_vlc_header_entry
+
+     /*
         trafficTreatment.add(DefaultPofInstructions
                 .writeMetadataFromPacket(metadata_offset, udp_len_offset, write_len)); // store udp.len into pof.metadata
+    */
+
+        trafficTreatment.add(DefaultPofInstructions
+                .writeMetadataFromPacket(metadata_offset, ip_len_off, ip_len_len)); // store ip.len into pof.metadata
+
         trafficTreatment.add(DefaultPofInstructions
                 .gotoTable((byte) next_table_id, next_table_match_field_num, next_table_packet_offset, match20List));
 
@@ -869,7 +879,7 @@ public class UeRule implements UeRuleService {
      */
     @Override
     public void install_pof_add_vlc_header_entry(DeviceId deviceId, int tableId, String dstIP, int outport, int priority,
-                                                 short timeSlot, short ledId, short ueId, int serviceId) {
+                                                 short timeSlot, short ledId, short ueId, int serviceId, String dmac) {
         // vlc header
         short type = Protocol.VLC_TYPE;
         short len = Protocol.VLC_LEN;      // ts:2 + type:2 + len:2 + ledID:2 + ueID:2 + serviceId:4 = 16
@@ -882,10 +892,10 @@ public class UeRule implements UeRuleService {
 
         // vlc_header
         StringBuilder vlc_header = new StringBuilder();
-        vlc_header.append(short2HexStr(timeSlot));
+//        vlc_header.append(short2HexStr(timeSlot));
         vlc_header.append(short2HexStr(type));
         vlc_header.append(short2HexStr(len));
-//        vlc_header.append(byte2HexStr(timeSlot));
+        vlc_header.append(short2HexStr(timeSlot));
         vlc_header.append(short2HexStr(ledId));
         vlc_header.append(short2HexStr(ueId));
         vlc_header.append(int2HexStr(serviceId));
@@ -927,11 +937,11 @@ public class UeRule implements UeRuleService {
         // get existed flow rules in flow table. if the dstIp equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
         existedFlowRules = flowTableStore.getFlowEntries(deviceId, FlowTableId.valueOf(tableId));
-        if(existedFlowRules != null) {
-            for(Integer flowEntryId : existedFlowRules.keySet()) {
+        if (existedFlowRules != null) {
+            for (Integer flowEntryId : existedFlowRules.keySet()) {
                 log.info("existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()) ==> {}",
                         existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build()));
-                if(existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build())) {
+                if (existedFlowRules.get(flowEntryId).selector().equals(trafficSelector.build())) {
                     flowTableService.removeFlowEntryByEntryId(deviceId, tableId, flowEntryId);
                 }
             }
@@ -948,22 +958,24 @@ public class UeRule implements UeRuleService {
         short cs_len = 16;    // udp.ckm length
 
         OFAction action_set_vlc_len = DefaultPofActions.setFieldFromMetadata(metadata_vlc_len, metadata_offset)
-                                      .action();   // write vlc_len field value from metadata
+                .action();   // write vlc_len field value from metadata
 //        OFAction action_cal_udp_checksum = DefaultPofActions.calcCheckSum(ckm_type, ckm_type, cs_off, cs_len, cal_pos, cal_len)
 //                                      .action();
         OFAction action_inc_vlc_len = DefaultPofActions.modifyField(vlc_len_field, vlc_len)
-                                      .action();
+                .action();
 //        OFAction action_inc_udp_len = DefaultPofActions.modifyField(udp_len_field, vlc_header_len).action();
         OFAction action_reset_udp_ckm = DefaultPofActions.setField(UDP_CKM_FIELD, Protocol.UDP_F_CKM_OFF, Protocol.UDP_F_CKM_LEN, "0000", "ffff")
-                                      .action();  // to forbid udp.ckm functionality
+                .action();  // to forbid udp.ckm functionality
+        OFAction action_reset_dmac = DefaultPofActions.setField(ETH_DMAC_FIELD, Protocol.DMAC__OFF, Protocol.DMAC__LEN, dmac,"fffffffffffffffff").action();
+
         OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport)
-                                 .action();
+                .action();
 
         actions.add(action_add_vlc_field);
         actions.add(action_set_vlc_len);
         actions.add(action_inc_vlc_len);
 //        actions.add(action_inc_udp_len);   // should not change ip.len, ip.ckm, udp.len; set udp.ckm (0x0000)
-//        actions.add(action_cal_udp_checksum);
+        actions.add(action_reset_dmac);
         actions.add(action_reset_udp_ckm);  // if udp.ckm == 0x0000, then receiver will not check udp.ckm
         actions.add(action_output);
         trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
@@ -983,7 +995,7 @@ public class UeRule implements UeRuleService {
     }
 
     /* match 'max_led_id' to avoid too much packet_in. action=drop.
-    * can remove old flow entry. */
+     * can remove old flow entry. */
     @Override
     public void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID, short oldLedId, int priority) {
         short LED_FIELD_ID = 20;
@@ -1015,9 +1027,9 @@ public class UeRule implements UeRuleService {
         // get existed flow rules in flow table. if equals, then delete it
         Map<Integer, FlowRule> existedFlowRules = new HashMap<>();
         existedFlowRules = flowTableStore.getFlowEntries(deviceId, FlowTableId.valueOf(tableId));
-        if(existedFlowRules != null) {
-            for(Integer flowEntryId : existedFlowRules.keySet()) {
-                if(existedFlowRules.get(flowEntryId).selector().equals(oldtrafficSelector.build())) {
+        if (existedFlowRules != null) {
+            for (Integer flowEntryId : existedFlowRules.keySet()) {
+                if (existedFlowRules.get(flowEntryId).selector().equals(oldtrafficSelector.build())) {
                     flowTableService.removeFlowEntryByEntryId(deviceId, tableId, flowEntryId);
                 }
             }
@@ -1039,4 +1051,40 @@ public class UeRule implements UeRuleService {
 
         log.info("install_pof_avoid_packet_in_entry: deviceId<{}>, tableId<{}>, entryId<{}>", deviceId, tableId, newFlowEntryId);
     }
+
+
+/*
+    //Filter data frames
+    public void select_control_data(DeviceId deviceId, int tableId, int priority) {
+
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength(DIP, Protocol.DIP_F_OFF, Protocol.DIP_F_LEN,                , "ffffffff"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
+
+
+        //output port
+        OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, 1).action();
+
+
+        ArrayList<OFAction> actions = new ArrayList<>();
+        actions.add(action_output);
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
+
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(deviceId)
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withPriority(priority)
+                .withCookie(newFlowEntryId)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
+
+    }
+*/
+
 }

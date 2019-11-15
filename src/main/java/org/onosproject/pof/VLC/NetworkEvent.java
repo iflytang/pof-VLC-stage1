@@ -16,7 +16,7 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
     protected int out_port;
     protected String hwaddr;
     protected String ip;
-
+    protected String dmac;
     protected PacketContext context;
 
     // network events type
@@ -36,7 +36,7 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
     }
 
     // for UE_ASSOCIATION or UE_DISASSOCIATION
-    public NetworkEvent(NetworkEvent.Type type, String subject,int ueId, int ledId, String deviceId, int out_port, String hwaddr, String ip) {
+    public NetworkEvent(NetworkEvent.Type type, String subject,int ueId, int ledId, String deviceId, int out_port, String hwaddr, String ip, PacketContext context, String dmac) {
         super(type, subject);
         this.ueId = ueId;
         this.ledId = ledId;
@@ -44,7 +44,8 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
         this.out_port = out_port;
         this.hwaddr = hwaddr;
         this.ip = ip;
-        this.context = null;
+        this.context = context;
+        this.dmac =dmac;
     }
 
     public NetworkEvent(NetworkEvent.Type type, String subject, PacketContext context) {
@@ -74,6 +75,10 @@ public class NetworkEvent extends AbstractEvent<NetworkEvent.Type, String> {
 
     public String getIp() {
         return this.ip;
+    }
+
+    public String getDmac() {
+        return this.dmac;
     }
 
     public PacketContext getContext() {

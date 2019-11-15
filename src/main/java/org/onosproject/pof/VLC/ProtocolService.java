@@ -31,6 +31,12 @@ public interface ProtocolService {
 
     void sendReply(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port);
 
+    Ethernet buildCl(Ethernet packet, short ledID, short ueID, short outgoingMsgType);
+
+    void sendCl(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port);
+
+
+
     /**
      * UE/CONTROLLER ack message sent from ue
      */

@@ -29,19 +29,29 @@ public class Protocol extends BasePacket {
     /* handshake type */
     final static int REQUEST = 0x0907;
     final static int REPLY = 0x0908;
+    final static int CLCACHE = 0x0909;
 //    final static int ACK1 = 0x0909;       // client/server ack
 //    final static int ACK2 = 0x090a;       // server/client ack
     final static int FEEDBACK = 0x090b;
+
+    //wireless_ap type
+    final static short data =0x0800;
+    final static short control=0x0801;
+
 
     /* data_flow type (VLC Header). */
     final static int VLC_TYPE = 0x1918;
     final static int VLC_LEN = 0x10;       // ts:2+type:2+len:2+led:2+ue:2+service:4
 
     /* VLC header {off,len} in bit. */
-    final static short VLC_H_OFF = 336;          // udp start location, 42B * 8 = 336b
+    final static short VLC_H_OFF = 96;          // eth start location, 12B * 8 = 96b
     final static short VLC_H_LEN = VLC_LEN * 8;
     final static short VLC_F_LEN_OFF = VLC_H_OFF + 32;   // ts:2 + type:2
     final static short VLC_F_LEN_LEN = 16;               // len:2B * 8 = 16b
+
+    final static short DMAC__OFF=0;
+    final static short DMAC__LEN=48;   //6B*8=48
+
 
     /* DIP filed {off,len} in bit. */
     final static short DIP_F_OFF = 240;
@@ -59,6 +69,12 @@ public class Protocol extends BasePacket {
     final static short AP_UELED_F_OFF = VLC_H_OFF + 32;   // type:2 + len:2 + ue:2 + led:2 + power:2
     final static short AP_UELED_F_LEN = 32;
 
+    /*CONTROL FRAME*/
+    final static short CONTROL_TYPE=12;
+    final static short CONTROl_LEN=14;
+    final static short CONTROL_UEID=16;
+    final static short CONTROL_LEDID=18;
+    final static short CONTROL_SIGNAL=19;
 
     // reply msg
     protected short type;
@@ -67,6 +83,7 @@ public class Protocol extends BasePacket {
     protected short ledID;
     protected short ueID;
     protected byte[] mac;
+    protected short clcache;
 
     public Protocol() {
         super();
@@ -81,6 +98,10 @@ public class Protocol extends BasePacket {
     public void setType(final short type) {
         this.type = type;
     }
+
+    public short getClcache(){return this.clcache;}
+
+    public void setClcache(final short clcache){ this.clcache= clcache;}
 
     public short getLength() {
         return this.length;

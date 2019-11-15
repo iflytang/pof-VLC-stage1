@@ -5,14 +5,17 @@ import org.onlab.packet.Ethernet;
 import org.onosproject.event.EventDeliveryService;
 import org.onosproject.event.ListenerRegistry;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.packet.InboundPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.onosproject.net.DeviceId;
 import javax.enterprise.inject.New;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.onosproject.net.packet.PacketContext;
 
 /**
  * Created by tsf on 11/7/17.
@@ -31,11 +34,17 @@ public class NetworkMonitor {
     protected NetworkEventService networkEventService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ProtocolService protocolService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected EventDeliveryService eventDispatcher;
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final InternalNetworkEventListener listener = new InternalNetworkEventListener();
     protected Dijkstra dijkstra = new Dijkstra();
+
+    static public DeviceId deviceId_gw = DeviceId.deviceId("pof:0000000000000001");
+    protected PortNumber cl_port = PortNumber.portNumber(2);
 
     @Activate
     public void activate() {
@@ -65,6 +74,8 @@ public class NetworkMonitor {
             String ip = event.getIp();
             int ledId = event.getLedId();
             int ueId = event.getUeId();
+            String dmac =event.getDmac();
+            PacketContext context=event.getContext();
             log.info("Receive Event: {} ==> ueId: {}, deviceId: {}, out_port: {}, hwaddr: {}, ip: {}, ledId:{}.",
                     event.type(), ueId, deviceId, out_port, hwaddr, ip, ledId);
 
@@ -88,13 +99,13 @@ public class NetworkMonitor {
 //                        event.type(), event.getUeId(), event.getDeviceId(), event.getLedId(), event.getHwaddr(), event.getIp());
 //                log.info("=======================================>");
                 log.info("Receive {} Event ==> handleUeAssociation()", event.type());
-                handleUeAssociation(deviceId, hwaddr, ip, (short) ueId, (short) ledId);
+                handleUeAssociation(deviceId, hwaddr, ip, (short) ueId, (short) ledId,context);
             }
 
             if(event.type().equals(NetworkEvent.Type.VLC_HEADER)) { // @deprecated, use VLC_UPDATE
                 // TODO: timeSlot? serviceId?
                 log.info("Receive {} Event ==> handleVLCHeader()", event.type());
-                handleVLCHeader(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0);
+                handleVLCHeader(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0, dmac);
 
             }
 
@@ -105,14 +116,14 @@ public class NetworkMonitor {
             if(event.type().equals(NetworkEvent.Type.VLC_UPDATE)) {
                 // TODO: timeSlot? serviceId?
                 log.info("Receive {} Event ==> handleVLCUpdate()", event.type());
-                handleVLCUpdate(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0);
+                handleVLCUpdate(deviceId, ip, out_port, DIP_FIELD_ID, ledId, ueId, timeSlot, 0, dmac);
             }
 
         }
 
         /** handle UeAssociation
          */
-        public void handleUeAssociation(String deviceId, String hwaddr, String ip, short ueId, short ledId) {
+        public void handleUeAssociation(String deviceId, String hwaddr, String ip, short ueId, short ledId , PacketContext context) {
            /* // if ueId != 0xff has not stored yet, then assume it as fake ueId (ueId show assigned by controller)
             if(ueId != 0xff) {
                 // check Mac_UeId
@@ -163,6 +174,14 @@ public class NetworkMonitor {
                 /* update if ledId changes */
                 if(ledId != storedLedId) {
                     log.info("[== handleUeAssociation ==] UE_Association_Update_LedId.");
+
+                    InboundPacket inboundPacket = context.inPacket();
+                    Ethernet ethernetPacket = inboundPacket.parsed();
+
+                    Ethernet ethRemove = protocolService.buildCl(ethernetPacket ,
+                            ledId, ueId, (short) Protocol.CLCACHE);
+                    protocolService.sendCl(context,ethRemove, deviceId_gw, cl_port);
+
                     ues.put(hwaddr, new UE(ueId, ledId, hwaddr, ip));
                     ues.get(hwaddr).setUeAssociation(new UeAssociation(ledId, ip));
                     updated = true;
@@ -187,30 +206,43 @@ public class NetworkMonitor {
                 ueRuleService.install_pof_avoid_packet_in_entry(DeviceId.deviceId(deviceId), NetworkBoot.ap_table_id_0,
                         ueId, ledId, oldledId, 12);
             }*/
+
+            // send a pkt
+
+
+            /*Ethernet ethReply = protocolService.buildReply(ethernetPacket,
+                    ledID, ueID, (short) Protocol.REPLY);
+            protocolService.sendReply(context, ethReply, DeviceId.deviceId(deviceArray[ledID]),
+                    PortNumber.portNumber(portArray[ledID]));*/
+
+
+
+
+
         }
 
 
         /** handle VLC_header: feedback's srcIp is our flow's dstIp (as match field)
          */
         public void handleVLCHeader(String deviceId, String dstIp, int outPort, int DIP,
-                                    int ledId, int ueId, int timeSlot, int serviceId) {
+                                    int ledId, int ueId, int timeSlot, int serviceId, String dmac) {
             // timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCHeader==] installGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
             ueRuleService.install_pof_add_vlc_header_entry(DeviceId.deviceId(deviceId), NetworkBoot.gw_table_id_1, dstIp, outPort,
-                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
+                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId, dmac);
         }
 
         /** handle VLC_update: feedback's srcIp is our flow's dstIp (as match field)
          */
         public void handleVLCUpdate(String deviceId, String dstIp, int outPort, int DIP,
-                                    int ledId, int ueId, int timeSlot, int serviceId) {
+                                    int ledId, int ueId, int timeSlot, int serviceId, String dmac) {
             // @deprecated: timeSlot value format: 0x01_01_01_01
             log.info("[==handleVLCUpdater==] updateGatewaySwitchFlowRule to deviceId: {}, dstIp: {}, outPort: {}, DIP: {}, ledId: {}, ueId: {}, timeSlot: {}, serviceId: {}",
                     deviceId, dstIp, outPort, DIP, ledId, ueId, timeSlot, serviceId);
             /* we will delete old entry before sending new flow entry in this function. */
             ueRuleService.install_pof_add_vlc_header_entry(DeviceId.deviceId(deviceId), NetworkBoot.gw_table_id_1, dstIp, outPort,
-                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId);
+                    12, (byte) timeSlot, (short) ledId, (short) ueId, (short) serviceId, dmac);
         }
     }
 
@@ -220,24 +252,32 @@ public class NetworkMonitor {
 
     // Test Event post and receive
     private class EventTimerTask extends java.util.TimerTask {
+
         @Override
         public void run() {
+            /*
             NetworkEvent UeAssociation = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION1",
                     0x12,1, "pof:0000000000000001", 1,"11:22:33:44:55:66", "192.168.109.172");
             networkEventService.post(UeAssociation);
             log.info("[== Test Event Post ==] Post event: {}", UeAssociation);
 
+             */
+
             try {
                 Thread.currentThread().sleep(1 * 1000);
+                /*
                 NetworkEvent UeAssociation2 = new NetworkEvent(NetworkEvent.Type.UE_ASSOCIATION, "UE_ASSOCIATION2",
                         0xff, 2, "pof:0000000000000001", 1, "01:02:03:04:05:06", "192.168.4.128");
                 networkEventService.post(UeAssociation2);
                 log.info("[== Test Event Post ==] Post event: {}", UeAssociation2);
+
+                 */
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
         }
+
     }
 
     // run periodically to start class EventTimerTask

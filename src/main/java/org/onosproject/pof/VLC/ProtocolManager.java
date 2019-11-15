@@ -87,6 +87,7 @@ public class ProtocolManager implements ProtocolService {
         reply.setUeID(ueID);                          // ueID assigned by controller
         reply.setMac(srcMAC.toBytes());               // ue's
 
+
         // build
         udpReply.setPayload(reply);
         ipv4Reply.setPayload(udpReply);
@@ -94,7 +95,6 @@ public class ProtocolManager implements ProtocolService {
 
         return ethReply;
     }
-
     @Override
     public void sendReply(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port) {
         if (reply != null) {
@@ -118,6 +118,78 @@ public class ProtocolManager implements ProtocolService {
 
         }
     }
+
+    public Ethernet buildCl(Ethernet packet, short ledID, short ueID, short outgoingMsgType){
+
+        MacAddress srcMAC = packet.getSourceMAC();          // ue's
+        MacAddress dstMAC = packet.getDestinationMAC();     // controller's
+        IPv4 ipv4Packet = (IPv4) packet.getPayload();
+        String srcIP = Ip4Address.valueOf(ipv4Packet.getSourceAddress()).toString();
+        String dstIP = Ip4Address.valueOf(ipv4Packet.getDestinationAddress()).toString();
+
+        MacAddress agent_mac = MacAddress.valueOf("4C:CC:6A:37:7B:98");
+        String agent_dst_ip = "192.168.1.100";
+        int agent_dst_port = 9012;
+        int agent_src_port = 9011;
+
+        // build Ethernet frame, reverse the order of MAC
+        Ethernet ethRemove = new Ethernet();
+        ethRemove.setSourceMACAddress(dstMAC);         // controller's
+        ethRemove.setDestinationMACAddress(agent_mac);    // ue's
+        ethRemove.setEtherType(Ethernet.TYPE_IPV4);    // type = 0x0800
+
+        // build IP packet
+        IPv4 ipv4Reply = new IPv4();                  // default construction
+        ipv4Reply.setSourceAddress(dstIP);            // controller's
+        ipv4Reply.setDestinationAddress(agent_dst_ip);       // ue's
+        ipv4Reply.setTtl((byte) 127);                 // ttl = 127
+
+        // build UDP datagram TODO: update UDP port value
+        UDP udpReply = new UDP();
+        udpReply.setSourcePort(agent_src_port);     // controller's
+        udpReply.setDestinationPort(agent_dst_port);// ue's
+
+        // build REPLY payload
+        Protocol reply = new Protocol();
+        reply.setType((outgoingMsgType));             // type = CLEARN
+        reply.setLength((short) Protocol.MIN_HEADER_LEN);
+        reply.setTimestamp((byte) ledID);             // timestamp, not use now, TODO: 'ts' set as 'ledID'
+        reply.setLedID(ledID);                        // ledID with max power
+        reply.setUeID(ueID);                          // ueID assigned by controller
+        reply.setMac(srcMAC.toBytes());               // ue's
+        reply.setClcache((short) Protocol.CLCACHE);
+
+
+        // build
+        udpReply.setPayload(reply);
+        ipv4Reply.setPayload(udpReply);
+        ethRemove.setPayload(ipv4Reply);
+
+        return ethRemove;
+    }
+
+
+    public void sendCl(PacketContext context, Ethernet reply, DeviceId deviceId, PortNumber out_port) {
+        if (reply != null) {
+            TrafficTreatment.Builder builder = DefaultTrafficTreatment.builder();
+
+            /* in VLC, the down-link is light (not wireless now).
+             * we should change the `deviceId` and `out_port`, cannot still be wireless AP.
+             * */
+//            PortNumber out_port = sourcePoint.port();           // the default out_port
+//            DeviceId deviceId = sourcePoint.deviceId();         // the default device name
+
+            List<OFAction> actions = new ArrayList<>();
+            actions.add(DefaultPofActions
+                    .output((short) 0, (short) 0, (short) 0,2).action());
+            builder.add(DefaultPofInstructions.applyActions(actions));
+
+            packetService.emit(new DefaultOutboundPacket(deviceId,
+                    builder.build(), ByteBuffer.wrap(reply.serialize())));
+
+        }
+    }
+
 
     // the 'request' and 'feedback' messages are almost same except the 'ueID'
     @Override
