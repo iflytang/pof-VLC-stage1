@@ -125,6 +125,9 @@ public class NetworkBoot {
         ueRuleService.install_pof_add_vlc_header_entry(deviceId_gw, gw_table_id_1, dstIP, 2, 1,
                 (short) 0x01, (short) 0x0001, (short) 0x0003, 0x0004, "00:0a:35:00:00:01");
 
+
+        ueRuleService.install_pof_change_ip_table(deviceId_gw, gw_table_id_2, dstIP, outport: 1, 12);
+
         /* drop the broadcast frame.
         *  TODO: maybe we have to add more ACL flow rules here, which according to the experiment environment.
         * */
@@ -133,7 +136,7 @@ public class NetworkBoot {
 
         /* send to wireless ap to test. for test only. */
 
-//        ueRuleService.select_control_data(deviceId_ap, NetworkBoot.ap_table_id_0, 1);
+        ueRuleService.select_control_data(deviceId_ap, NetworkBoot.ap_table_id_0, dstIP, 1);//port:lan
 
         /*ueRuleService.install_pof_avoid_packet_in_entry(deviceId_ap, NetworkBoot.ap_table_id_0,
                 (short) 0xff, (short) 0x12, (short) 0x11, 12);
@@ -170,18 +173,18 @@ public class NetworkBoot {
 
     /* 'led_id' as index. led connects dmac. TODO: to update. */
     private String[] initDmacArray(String[] dmacArray) {
-        dmacArray[1] = "00:0a:35:00:00:01";
-        dmacArray[2] = "00:0a:35:00:00:01";
-        dmacArray[3] = "00:0a:35:00:00:01";
-        dmacArray[4] = "00:0a:35:00:00:04";
-        dmacArray[5] = "00:0a:35:00:00:04";
-        dmacArray[6] = "00:0a:35:00:00:04";
-        dmacArray[7] = "00:0a:35:00:00:05";
-        dmacArray[8] = "00:0a:35:00:00:05";
-        dmacArray[9] = "00:0a:35:00:00:05";
-        dmacArray[10] = "00:0a:35:00:00:08";
-        dmacArray[11] = "00:0a:35:00:00:08";
-        dmacArray[12] = "00:0a:35:00:00:08";
+        dmacArray[1] = "000a35000001";
+        dmacArray[2] = "000a35000001";
+        dmacArray[3] = "000a35000001";
+        dmacArray[4] = "000a35000004";
+        dmacArray[5] = "000a35000004";
+        dmacArray[6] = "000a35000004";
+        dmacArray[7] = "000a35000005";
+        dmacArray[8] = "000a35000005";
+        dmacArray[9] = "000a35000005";
+        dmacArray[10] = "000a35000008";
+        dmacArray[11] = "000a35000008";
+        dmacArray[12] = "000a35000008";
         return dmacArray;
     }
 

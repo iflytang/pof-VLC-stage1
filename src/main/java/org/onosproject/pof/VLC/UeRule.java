@@ -68,6 +68,9 @@ public class UeRule implements UeRuleService {
     public static final short IP_LEN_FIELD = 17;
     public static final short ETH_DMAC_FIELD=18;
 
+    public static final short IP_SRCAD_FIELD=19;
+    public static final short IP_DSTAD_FIELD=20;
+
     public static final short SERVICEID = 2;
     public static final short TIMESLOT = 3;
     public static final short UID = 4;
@@ -1053,13 +1056,13 @@ public class UeRule implements UeRuleService {
     }
 
 
-/*
+
     //Filter data frames
-    public void select_control_data(DeviceId deviceId, int tableId, int priority) {
+    public void select_control_data(DeviceId deviceId, int tableId, String dstIP, int priority) {
 
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength(DIP, Protocol.DIP_F_OFF, Protocol.DIP_F_LEN,                , "ffffffff"));
+        matchList.add(Criteria.matchOffsetLength(DIP, Protocol.DIP_F_OFF, Protocol.DIP_F_LEN,dstIP , "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
 
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
@@ -1085,6 +1088,60 @@ public class UeRule implements UeRuleService {
         flowRuleService.applyFlowRules(flowRule.build());
 
     }
-*/
+
+
+    public void install_pof_change_ip_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority){
+        // match
+        TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
+        ArrayList<Criterion> matchList = new ArrayList<>();
+        matchList.add(Criteria.matchOffsetLength(SIP, Protocol.SIP_F_OFF, Protocol.SIP_F_LEN, dstIP, "ffffffff"));
+        trafficSelector.add(Criteria.matchOffsetLength(matchList));
+
+//
+//        short ip_dip_off = Protocol.DIP_F_OFF;
+//        short ip_dip_len = Protocol.DIP_F_LEN;
+//
+//        short ip_sip_off = Protocol.SIP_F_OFF;
+//        short ip_sip_len = Protocol.SIP_F_LEN;
+//
+//        OFMatch20 ip_srcad_field = new OFMatch20();
+//        ip_srcad_field.setFieldId(IP_SRCAD_FIELD);
+//        ip_srcad_field.setFieldName("ip_srcad_field");
+//        ip_srcad_field.setOffset(ip_sip_off);
+//        ip_srcad_field.setLength(ip_sip_len);
+//
+//        OFMatch20 ip_dstad_field = new OFMatch20();
+//        ip_dstad_field.setFieldId(IP_DSTAD_FIELD);
+//        ip_dstad_field.setFieldName("ip_dstad_field");
+//        ip_dstad_field.setOffset(ip_dip_off);
+//        ip_dstad_field.setLength(ip_dip_len);
+//
+//        OFAction action_change_dstip = DefaultPofActions.modifyField(ip_srcad_field, ip_dstad_field).action();
+//        OFAction action_change_srcip = DefaultPofActions.modifyField(ip_dstad_field, ip_srcad_field).action();
+        OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, outport)
+                .action();
+
+        ArrayList<OFAction>  actions = new ArrayList<>();
+//        actions.add(action_change_dstip);
+//        actions.add(action_change_srcip);
+        actions.add(action_output);
+
+
+
+
+        long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
+        FlowRule.Builder flowRule = DefaultFlowRule.builder()
+                .forDevice(deviceId)
+                .forTable(tableId)
+                .withSelector(trafficSelector.build())
+                .withTreatment(trafficTreatment.build())
+                .withPriority(priority)
+                .withCookie(newFlowEntryId)
+                .makePermanent();
+        flowRuleService.applyFlowRules(flowRule.build());
+        log.info("install_pof_change_ip_table: deviceId<{}>, tableId<{}>, entryId<{}>",
+                deviceId, tableId, newFlowEntryId);
+    }
+
 
 }

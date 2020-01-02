@@ -56,6 +56,8 @@ public class Protocol extends BasePacket {
     /* DIP filed {off,len} in bit. */
     final static short DIP_F_OFF = 240;
     final static short DIP_F_LEN = 32;
+    final static short SIP_F_OFF = 208;
+    final static short SIP_F_LEN = 32;
     final static short IP_F_LEN_OFF = 128;
     final static short IP_F_LEN_LEN = 16;
 

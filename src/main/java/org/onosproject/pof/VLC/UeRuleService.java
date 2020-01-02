@@ -106,9 +106,11 @@ public interface UeRuleService {
 
     //void set_DMAC_field(DeviceId deviceId, int tableId, int outport, String dstIP, int priority, short ledId);
 
-//    void select_control_data(DeviceId deviceId, int tableId, int priority);
+    void select_control_data(DeviceId deviceId, int tableId, String dstIP, int priority);
 
     /* match 'ue_led_id' to avoid too much packet_in. action=drop. */
     void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID,
                                            short oldLedID, int priority);
+
+    void install_pof_change_ip_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority);
 }
