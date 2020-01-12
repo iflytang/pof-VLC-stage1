@@ -1,13 +1,13 @@
 <component name="libraryTable">
   <library name="Maven: org.onosproject:onos-protocols-openflow-api:1.11.0-SNAPSHOT">
     <CLASSES>
-      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT.jar!/" />
     </CLASSES>
     <JAVADOC>
-      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT-javadoc.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT-javadoc.jar!/" />
     </JAVADOC>
     <SOURCES>
-      <root url="jar://$MAVEN_REPOSITORY$/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT-sources.jar!/" />
+      <root url="jar://$USER_HOME$/.m2/repository/org/onosproject/onos-protocols-openflow-api/1.11.0-SNAPSHOT/onos-protocols-openflow-api-1.11.0-SNAPSHOT-sources.jar!/" />
     </SOURCES>
   </library>
 </component>

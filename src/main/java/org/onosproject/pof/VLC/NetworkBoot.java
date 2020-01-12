@@ -74,6 +74,7 @@ public class NetworkBoot {
     static public DeviceId deviceId_gw = DeviceId.deviceId("pof:0000000000000001");
     static public byte gw_table_id_0;
     static public byte gw_table_id_1;
+    static public byte gw_table_id_2;
 
     static public DeviceId deviceId_ap = DeviceId.deviceId("pof:0000000000000002");
     static public byte ap_table_id_0;
@@ -109,6 +110,7 @@ public class NetworkBoot {
         /* send pof_flow_table to deviceId = gw, used for add_vlc_header */
         gw_table_id_0 = ueRuleService.send_pof_flow_table(deviceId_gw, "FirstEntryTable", appId);
         gw_table_id_1 = ueRuleService.send_pof_flow_table(deviceId_gw, "AddVlcHeaderTable", appId);
+        gw_table_id_2 = ueRuleService.send_pof_flow_table(deviceId_gw, "SecondEntryTable", appId);
 
         /* send pof_flow_table to deviceId = wireless_ap, used for packet-in */
         ap_table_id_0 = ueRuleService.send_pof_flow_table_to_wireless_ap(deviceId_ap, "FirstEntryTable", appId);
@@ -126,7 +128,7 @@ public class NetworkBoot {
                 (short) 0x01, (short) 0x0001, (short) 0x0003, 0x0004, "00:0a:35:00:00:01");
 
 
-        ueRuleService.install_pof_change_ip_table(deviceId_gw, gw_table_id_2, dstIP, outport: 1, 12);
+        ueRuleService.install_send_back_entry_table(deviceId_gw, gw_table_id_2, dstIP,  1, 12);
 
         /* drop the broadcast frame.
         *  TODO: maybe we have to add more ACL flow rules here, which according to the experiment environment.
@@ -173,18 +175,18 @@ public class NetworkBoot {
 
     /* 'led_id' as index. led connects dmac. TODO: to update. */
     private String[] initDmacArray(String[] dmacArray) {
-        dmacArray[1] = "000a35000001";
-        dmacArray[2] = "000a35000001";
-        dmacArray[3] = "000a35000001";
-        dmacArray[4] = "000a35000004";
-        dmacArray[5] = "000a35000004";
-        dmacArray[6] = "000a35000004";
-        dmacArray[7] = "000a35000005";
-        dmacArray[8] = "000a35000005";
-        dmacArray[9] = "000a35000005";
-        dmacArray[10] = "000a35000008";
-        dmacArray[11] = "000a35000008";
-        dmacArray[12] = "000a35000008";
+        dmacArray[1] = "00:0a:35:00:00:01";
+        dmacArray[2] = "00:0a:35:00:00:01";
+        dmacArray[3] = "00:0a:35:00:00:01";
+        dmacArray[4] = "00:0a:35:00:00:04";
+        dmacArray[5] = "00:0a:35:00:00:04";
+        dmacArray[6] = "00:0a:35:00:00:04";
+        dmacArray[7] = "00:0a:35:00:00:05";
+        dmacArray[8] = "00:0a:35:00:00:05";
+        dmacArray[9] = "00:0a:35:00:00:05";
+        dmacArray[10] = "00:0a:35:00:00:08";
+        dmacArray[11] = "00:0a:35:00:00:08";
+        dmacArray[12] = "00:0a:35:00:00:08";
         return dmacArray;
     }
 

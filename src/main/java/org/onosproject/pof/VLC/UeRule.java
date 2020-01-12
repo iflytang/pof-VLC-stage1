@@ -1060,17 +1060,14 @@ public class UeRule implements UeRuleService {
     //Filter data frames
     public void select_control_data(DeviceId deviceId, int tableId, String dstIP, int priority) {
 
+        short sip_off = Protocol.SIP_F_OFF+16;
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength(DIP, Protocol.DIP_F_OFF, Protocol.DIP_F_LEN,dstIP , "ffffffff"));
+        matchList.add(Criteria.matchOffsetLength(SIP, sip_off, Protocol.SIP_F_LEN,dstIP , "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-
         TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
-
-
         //output port
         OFAction action_output = DefaultPofActions.output((short) 0, (short) 0, (short) 0, 1).action();
-
 
         ArrayList<OFAction> actions = new ArrayList<>();
         actions.add(action_output);
@@ -1090,13 +1087,14 @@ public class UeRule implements UeRuleService {
     }
 
 
-    public void install_pof_change_ip_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority){
+    public void install_send_back_entry_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority){
+        short sip_off = Protocol.SIP_F_OFF+16;
         // match
         TrafficSelector.Builder trafficSelector = DefaultTrafficSelector.builder();
         ArrayList<Criterion> matchList = new ArrayList<>();
-        matchList.add(Criteria.matchOffsetLength(SIP, Protocol.SIP_F_OFF, Protocol.SIP_F_LEN, dstIP, "ffffffff"));
+        matchList.add(Criteria.matchOffsetLength(SIP, sip_off, Protocol.SIP_F_LEN, dstIP, "ffffffff"));
         trafficSelector.add(Criteria.matchOffsetLength(matchList));
-
+        TrafficTreatment.Builder trafficTreatment = DefaultTrafficTreatment.builder();
 //
 //        short ip_dip_off = Protocol.DIP_F_OFF;
 //        short ip_dip_len = Protocol.DIP_F_LEN;
@@ -1125,9 +1123,7 @@ public class UeRule implements UeRuleService {
 //        actions.add(action_change_dstip);
 //        actions.add(action_change_srcip);
         actions.add(action_output);
-
-
-
+        trafficTreatment.add(DefaultPofInstructions.applyActions(actions));
 
         long newFlowEntryId = flowTableStore.getNewFlowEntryId(deviceId, tableId);
         FlowRule.Builder flowRule = DefaultFlowRule.builder()
@@ -1142,6 +1138,5 @@ public class UeRule implements UeRuleService {
         log.info("install_pof_change_ip_table: deviceId<{}>, tableId<{}>, entryId<{}>",
                 deviceId, tableId, newFlowEntryId);
     }
-
 
 }

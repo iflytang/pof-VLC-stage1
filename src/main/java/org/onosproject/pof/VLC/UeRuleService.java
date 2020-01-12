@@ -112,5 +112,5 @@ public interface UeRuleService {
     void install_pof_avoid_packet_in_entry(DeviceId deviceId, int tableId, short ueId, short ledID,
                                            short oldLedID, int priority);
 
-    void install_pof_change_ip_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority);
+    void install_send_back_entry_table(DeviceId deviceId, int tableId, String dstIP, int outport, int priority);
 }
